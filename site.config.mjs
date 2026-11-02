@@ -6,7 +6,7 @@ export const SITE = {
   name: 'Tarot Learning Guide',
   tagline: 'Learn the cards. Keep your own judgment.',
   // Where readers (and Google's reviewers) can reach you. Shown on the About and Privacy pages.
-  contactEmail: process.env.CONTACT_EMAIL || 'readuvall@gmail.com',
+  contactEmail: process.env.CONTACT_EMAIL || 'rileygreenm@gmail.com',
   // Leave blank until AdSense approves the site. Then paste your publisher ID, e.g. 'ca-pub-1234567890123456'.
   // While blank, NO ad code or ads.txt is published.
   adsenseClient: process.env.ADSENSE_CLIENT || '',
