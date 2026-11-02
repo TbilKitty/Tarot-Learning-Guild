@@ -1,7 +1,10 @@
 import {mkdir,copyFile,readFile,writeFile} from 'node:fs/promises';
 import {DECK} from './deck.mjs';
+import {buildPages, footer, slug as cardSlug} from './build-pages.mjs';
+import {CONTENT} from './card-content.mjs';
+import {SITE} from './site.config.mjs';
 await mkdir('public',{recursive:true});
-for(const f of ['index.html','card-meanings.html','style.css','magic-theme.css','app.mjs','meanings.mjs','deck.mjs','card-back.webp','_headers'])await copyFile(f,`public/${f}`);
+for(const f of ['index.html','card-meanings.html','style.css','magic-theme.css','app.mjs','meanings.mjs','deck.mjs','card-back.webp','_headers','pages.css'])await copyFile(f,`public/${f}`);
 await writeFile('public/.nojekyll','');
 const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const prompts=`What new beginning deserves a small, practical experiment?|Which skill could you use immediately to make your intention concrete?|What could you learn by listening before deciding?|Where is care helping growth, and where might you need some yourself?|What boundary would offer stability without becoming too rigid?|Which shared rule fits your values, and which one deserves a closer look?|What choice would align your actions with what matters most?|What needs direction before you increase your speed?|Where would patient courage help more than pressure?|What could a quiet pause teach you before you reconnect?|How can you adapt to change while staying attentive to your choices?|What evidence or responsibility should you bring into this decision?|Would a different perspective help more than another attempt to force progress?|What ending might create space for a healthier next chapter?|Which adjustment could make this path sustainable?|Which attachment is shaping your choice, and how much freedom do you have?|What assumption has changed, and what would honest rebuilding require?|What would hope look like as a small daily practice?|Which parts of this uncertainty are facts and which are fears?|Where can you acknowledge something that is genuinely going well?|What deserves a fair review before you move forward?|What have you completed, and what will you carry into the next stage?|
@@ -12,14 +15,19 @@ What practical first step would help you test an opportunity?|Which responsibili
 if(prompts.length!==78)throw new Error(`Need 78 learning prompts; got ${prompts.length}`);
 const groups=[['Major Arcana','major-arcana','The major cards introduce broad themes such as change, choice, responsibility, and renewal. Their position helps you apply that theme to the question at hand.'],['Wands','wands','Wands invite attention to motivation, creative energy, ambition, and how an idea becomes action.'],['Cups','cups','Cups often bring feelings, connection, care, and emotional expectations into a reading.'],['Swords','swords','Swords bring thought, communication, conflict, and clarity into focus.'],['Pentacles','pentacles','Pentacles ask about work, resources, daily practices, and practical stability.']];
 const slug=s=>s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
-const library=groups.map(([name,id,description])=>`<section class="suit-section" id="${id}"><p class="eyebrow">${escape(name.toUpperCase())}</p><h2>${escape(name)}</h2><p>${escape(description)}</p><div class="entry-grid">${DECK.map((c,i)=>({c,i})).filter(({c})=>c.suit===name).map(({c,i})=>`<article class="meaning-entry" id="${slug(c.name)}" data-card="${escape(c.name.toLowerCase())}"><h3>${escape(c.name)}</h3><p><strong>Upright</strong> ${escape(c.upright)}</p><p><strong>Reversed</strong> ${escape(c.reversed)}</p><p class="practice-prompt"><strong>Ask yourself</strong> ${escape(prompts[i].trim())}</p></article>`).join('')}</div></section>`).join('');
+const library=groups.map(([name,id,description])=>`<section class="suit-section" id="${id}"><p class="eyebrow">${escape(name.toUpperCase())}</p><h2>${escape(name)}</h2><p>${escape(description)}</p><div class="entry-grid">${DECK.map((c,i)=>({c,i})).filter(({c})=>c.suit===name).map(({c,i})=>`<article class="meaning-entry" id="${slug(c.name)}" data-card="${escape(c.name.toLowerCase())}"><h3>${escape(c.name)}</h3><p><strong>Upright</strong> ${escape(c.upright)}</p><p><strong>Reversed</strong> ${escape(c.reversed)}</p><p class="practice-prompt"><strong>Ask yourself</strong> ${escape(prompts[i].trim())}</p>${CONTENT[cardSlug(c.name)]?`<p class="full-link"><a href="/cards/${cardSlug(c.name)}">Full ${escape(c.name)} meaning: love, career, yes or no →</a></p>`:''}</article>`).join('')}</div></section>`).join('');
+const pagesInfo=await buildPages(prompts.map(p=>p.trim()));
+const withSiteParts=(html,path,ads=false)=>html.replaceAll('href="card-meanings.html','href="/card-meanings').replaceAll('href="index.html','href="/').replaceAll('href="/#','href="/#').replace(/<footer[\s\S]*?<\/footer>/,footer()).replace('</head>',`<link rel="canonical" href="${SITE.url}${path}"><link rel="stylesheet" href="pages.css">${ads?pagesInfo.adHead:''}</head>`);
 const original=await readFile('index.html','utf8');
-await writeFile('public/index.html',original);
+await writeFile('public/index.html',withSiteParts(original,'/'));
 const reference=(await readFile('card-meanings.html','utf8'))
   .replace('<meta name="theme-color" content="#101720">','<meta name="theme-color" content="#eee6f5">')
   .replace('<link rel="stylesheet" href="style.css">','<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="magic-theme.css">')
   .replace('<!-- Filled at build time with all 78 card entries. -->',library);
-await writeFile('public/card-meanings.html',reference);
+await writeFile('public/card-meanings.html',withSiteParts(reference,'/card-meanings',true));
+if(pagesInfo.adsOn){// AdSense needs to load Google scripts on the reading pages; drop the strict policy there only.
+  await writeFile('public/_headers',(await readFile('_headers','utf8'))+'\n/cards/*\n  ! Content-Security-Policy\n/card-meanings.html\n  ! Content-Security-Policy\n');}
+console.log(`Built ${pagesInfo.cards.length} full card pages; ads ${pagesInfo.adsOn?'ON':'off'}`);
 // A self-contained, offline demo can be opened by double-clicking this file.
 let html=original;
 const art=(await readFile('card-back.webp')).toString('base64');

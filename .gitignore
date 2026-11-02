@@ -1,0 +1,6 @@
+node_modules/
+public/
+.wrangler/
+.dev.vars
+Fifth-Card-Preview.html
+Tarot-Learning-Guild-Card-Meanings.html
