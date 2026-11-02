@@ -9,7 +9,7 @@
     "FREE_AI_ENABLED": "false",
     "TURNSTILE_SITE_KEY": "",
     "SITE_URL": "https://tarotlearningguide.com",
-    "SUPPORT_EMAIL": "readuvall@gmail.com",
+    "SUPPORT_EMAIL": "rileygreenm@gmail.com",
     "OPENAI_MODEL": "gpt-4.1-mini"
   },
   "d1_databases": [{ "binding": "DB", "database_name": "fifth-card-readings", "database_id": "73a887c8-ccad-4d8e-aa62-91abe3712e0f" }],
