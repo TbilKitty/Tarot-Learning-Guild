@@ -16,11 +16,13 @@
 import {MAJORS_1} from './card-content-majors-1.mjs';
 import {MAJORS_2} from './card-content-majors-2.mjs';
 import {WANDS} from './card-content-wands.mjs';
+import {CUPS} from './card-content-cups.mjs';
 
 export const CONTENT = {
   ...MAJORS_1,
   ...MAJORS_2,
   ...WANDS,
+  ...CUPS,
   'the-fool': {
     reviewed: false,
     keywords: {
