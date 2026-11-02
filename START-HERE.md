@@ -1,4 +1,22 @@
-# Tarot Learning Guild — step-by-step setup
+# Tarot Learning Guide — start here
+
+## New: card pages, ads and your domain (November 2026)
+
+- **Card pages.** Each card with an entry in `card-content.mjs` gets its own page at `/cards/<card-name>`
+  (for example `/cards/the-tower`) with upright, reversed, love, career, money, yes-or-no, imagery and
+  combinations. Cards without an entry yet stay on the 78-card list only, so no thin pages get published.
+- **Settings.** Your domain, contact email and AdSense publisher ID live in `site.config.mjs`.
+  Ads stay completely off until you paste a publisher ID there; then ad code appears only on the card and
+  meaning pages (never on the practice draw or payment page), `ads.txt` is created, and the privacy page
+  updates itself.
+- **Also generated:** About, Privacy, a 404 page, `sitemap.xml` and `robots.txt`.
+- **Hosting.** Cloudflare Workers serves the whole site (free pages + paid readings) at your domain.
+  The old GitHub Pages/Jekyll workflow was removed because it published the unbuilt files.
+
+The original setup guide continues below.
+
+---
+
 
 The site is complete as a **free learning guide and unlimited five-card written practice tool**. When you connect the services below, visitors get **three free personalized AI readings in their browser**, then pay **$2 for each additional AI reading**. The free and paid AI readings each include one question, five main cards, and one shared set of three clarifiers for the full spread (8 distinct cards total). Cards and AI answers are saved for 30 days. There is no visitor account system; see the limits in section 5.
 
@@ -19,7 +37,7 @@ In the repository, go to **Settings → Pages → Build and deployment → Deplo
 
 ## 3. Choose a domain
 
-You can buy a domain tomorrow or wait until the demo feels right. The displayed brand is **Tarot Learning Guild**; the internal project name **The Fifth Card** can be changed later. Check your preferred name's availability before purchasing it.
+You can buy a domain tomorrow or wait until the demo feels right. The displayed brand is **Tarot Learning Guide**; the internal project name **Tarot Learning Guide** can be changed later. Check your preferred name's availability before purchasing it.
 
 For the full paid version, use a domain you can connect to Cloudflare Workers. Add the domain to your Cloudflare account and follow Cloudflare's displayed nameserver instructions at the registrar. After deployment, attach the domain to the Worker under **Workers & Pages → the-fifth-card → Settings → Domains & Routes → Add → Custom Domain**. Use the exact hostname you want, such as `example.com` or `www.example.com`. Set `SITE_URL` in `wrangler.jsonc` to that exact `https://` address and redeploy. [Cloudflare's custom-domain guide](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/) describes current domain and DNS requirements. The worker's temporary `workers.dev` address can be used first; set `SITE_URL` to that exact address for testing and update it when your domain is attached.
 
