@@ -18,6 +18,7 @@ import {MAJORS_2} from './card-content-majors-2.mjs';
 import {WANDS} from './card-content-wands.mjs';
 import {CUPS} from './card-content-cups.mjs';
 import {SWORDS} from './card-content-swords.mjs';
+import {PENTACLES} from './card-content-pentacles.mjs';
 
 export const CONTENT = {
   ...MAJORS_1,
@@ -25,6 +26,7 @@ export const CONTENT = {
   ...WANDS,
   ...CUPS,
   ...SWORDS,
+  ...PENTACLES,
   'the-fool': {
     reviewed: false,
     keywords: {
