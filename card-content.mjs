@@ -14,9 +14,11 @@
 //              this is for your own tracking)
 
 import {MAJORS_1} from './card-content-majors-1.mjs';
+import {MAJORS_2} from './card-content-majors-2.mjs';
 
 export const CONTENT = {
   ...MAJORS_1,
+  ...MAJORS_2,
   'the-fool': {
     reviewed: false,
     keywords: {
