@@ -13,7 +13,10 @@
 //   reviewed   true once N has read and edited it (drafts show nothing different publicly;
 //              this is for your own tracking)
 
+import {MAJORS_1} from './card-content-majors-1.mjs';
+
 export const CONTENT = {
+  ...MAJORS_1,
   'the-fool': {
     reviewed: false,
     keywords: {
