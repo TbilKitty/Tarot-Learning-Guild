@@ -46,6 +46,19 @@ const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); retu
 function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
 function status(text) { $('status').textContent = text; }
 
+// ---------------------------------------------------------------- heavy questions
+// The cards can't know whether "yes" is good news. For serious questions, celebrations switch off
+// and a short, kind note appears instead.
+const CRISIS = /\b(suicid\w*|kill (my|him|her)self|end (my|it all)|self[- ]?harm|hurt(ing)? myself|want to die|don'?t want to (live|be here))\b/i;
+const HEAVY = /\b(cheat\w*|affair|unfaithful|divorc\w*|break ?up|leav(e|ing) me|pregnan\w*|miscarr\w*|cancer|tumou?r|sick|illness|diagnos\w*|surgery|hospital|die|dying|death|dead|pass away|abus\w*|hit me|court|custody|lawsuit|arrest\w*|jail|prison|evict\w*|fired|laid off|debt|bankrupt\w*)\b/i;
+const isHeavy = q => HEAVY.test(q || '') || CRISIS.test(q || '');
+function careNote(q) {
+  if (CRISIS.test(q || '')) return 'If you’re thinking about hurting yourself, please reach out now: call or text 988 (Suicide & Crisis Lifeline, US) anytime, or text HOME to 741741. You deserve real support, not just cards.';
+  if (HEAVY.test(q || '')) return 'Cards can’t confirm what another person is doing or how a serious situation will turn out. Take this as something to reflect on, and lean on facts and people you trust for the real answer.';
+  return '';
+}
+state.quiet = false; // true while showing a reading for a heavy question
+
 // ---------------------------------------------------------------- feedback
 let audio;
 function tone(freqs, dur = 0.12, gap = 0.07, vol = 0.05) {
@@ -64,14 +77,15 @@ const buzz = p => { try { navigator.vibrate?.(p); } catch {} };
 const sounds = {
   flip: () => { tone([660, 990], 0.14, 0.06); buzz(18); },
   newCard: () => { tone([784, 988, 1319], 0.18, 0.08, 0.06); buzz([20, 40, 20]); },
-  win: () => { tone([523, 659, 784, 1047, 1319], 0.22, 0.09, 0.07); buzz([30, 50, 30, 50, 60]); },
+  win: () => { if (state.quiet) { tone([523, 659], 0.2, 0.1, 0.04); return; } tone([523, 659, 784, 1047, 1319], 0.22, 0.09, 0.07); buzz([30, 50, 30, 50, 60]); },
+  reveal: () => { tone([440, 554, 659], 0.3, 0.12, 0.045); buzz(25); },
   tap: () => { tone([520], 0.06, 0, 0.03); buzz(8); },
 };
 
 // confetti / sparkles on a canvas
 const fx = {parts: [], running: false};
 function burst(x, y, n = 40, spread = 1) {
-  if (reduceMotion) return;
+  if (reduceMotion || state.quiet) return;
   const colors = ['#ffd36e', '#ff7ac6', '#a98bff', '#7ee0ff', '#ffffff'];
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, v = (2 + Math.random() * 6) * spread;
@@ -204,6 +218,7 @@ function renderProgress() {
 }
 function checkBadges() {
   const have = new Set(store.get('badges', [])), st = streakCount();
+  if (state.quiet) return;
   for (const b of BADGES) if (!have.has(b.id) && b.test(collection, st)) {
     have.add(b.id); store.set('badges', [...have]);
     setTimeout(() => { toast(`${b.icon} Badge unlocked: ${b.name}!`, 'gold'); sounds.win(); confetti(); }, 900);
@@ -214,7 +229,7 @@ function collect(card, node) {
   if (isNew) {
     collection.add(card.id); store.set('collection', [...collection]);
     node.classList.add('is-new'); node.append(el('span', 'new-tag', 'NEW!'));
-    setTimeout(() => { sounds.newCard(); burstFrom(node, 30, 0.8); toast(`✨ New card collected! ${collection.size}/78`); }, 350);
+    setTimeout(() => { if (!state.quiet) { sounds.newCard(); burstFrom(node, 30, 0.8); toast(`✨ New card collected! ${collection.size}/78`); } }, 350);
   }
   renderProgress(); checkBadges();
   return isNew;
@@ -236,7 +251,7 @@ function daily() {
     const count = s.last === today() ? s.count : s.last === yesterday() ? s.count + 1 : 1;
     store.set('streak', {last: today(), count});
     $('daily-front').replaceChildren(faceContent(c));
-    btn.classList.remove('beckon'); btn.classList.add('flipped'); sounds.flip(); burstFrom(btn, 50, 1.1);
+    state.quiet = false; btn.classList.remove('beckon'); btn.classList.add('flipped'); sounds.flip(); burstFrom(btn, 50, 1.1);
     setTimeout(() => { showDaily(c); collect(c, btn); if (count > 1) toast(`🔥 ${count}-day streak!`, 'gold'); }, 450);
   }, {once: false});
 }
@@ -274,7 +289,7 @@ function practice(topic, question, reversals) {
 
 // ---------------------------------------------------------------- the spread game
 function dealReading(reading) {
-  state.reading = reading; state.revealed = 0; state.bonusRevealed = 0;
+  state.reading = reading; state.revealed = 0; state.bonusRevealed = 0; state.quiet = isHeavy(reading.question);
   $('result').hidden = true; $('bonus-table').hidden = true; $('clarifier-story').hidden = true; $('bonus').hidden = false;
   $('table').hidden = false; $('yn-table').hidden = true; closeSheet();
   $('reading-kind').textContent = reading.demo ? 'YOUR FIVE-CARD SPREAD' : '✦ YOUR PERSONAL AI READING ✦';
@@ -330,6 +345,7 @@ function finish() {
   $('insights').replaceChildren(...(r.content.insights || []).map(t => el('li', '', t)));
   $('summary').textContent = r.content.summary;
   $('reflection').textContent = r.content.reflection;
+  $('care-note').textContent = careNote(r.question); $('care-note').hidden = !careNote(r.question);
   $('go-deeper').hidden = !r.demo || !(state.config.enabled || state.config.freeEnabled);
   $('result').hidden = false; sounds.win(); confetti();
   $('result').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'start'});
@@ -377,23 +393,24 @@ function setMode(m) {
 }
 document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); sounds.tap(); }));
 function dealYesNo() {
-  const card = drawDeck($('reversals').checked)[0]; state.ynCard = card;
+  const card = drawDeck($('reversals').checked)[0]; state.ynCard = card; state.quiet = isHeavy($('question').value);
   $('yn-question').textContent = $('question').value.trim() ? `“${$('question').value.trim()}”` : 'Your yes-or-no question';
   $('yn-answer').hidden = true; $('yn-table').hidden = false; $('yn-progress').textContent = 'Tap the card to get your answer 👆';
   const spread = $('yn-spread'); spread.replaceChildren();
   const slot = el('div', 'slot'); const b = flipCard(card, 'Tap to reveal your answer'); b.classList.add('big', 'beckon');
   b.addEventListener('click', () => {
     if (b.classList.contains('flipped')) return;
-    b.classList.remove('beckon'); b.classList.add('flipped'); b.disabled = true; sounds.flip(); burstFrom(b, 24, 0.7);
+    b.classList.remove('beckon'); b.classList.add('flipped'); b.disabled = true; sounds.flip();
     setTimeout(() => {
       const yn = yesNo(card), word = YES_NO_WORD[yn];
-      $('yn-word').textContent = yn === 'Y' ? 'YES ✨' : yn === 'M' ? 'MAYBE…' : 'NO';
+      $('yn-word').textContent = yn === 'Y' ? 'YES' : yn === 'M' ? 'MAYBE' : 'NO';
       $('yn-word').className = `yn-word ${yn}`;
       $('yn-card').textContent = `${card.name}${card.reversedCard ? ' (reversed)' : ''}`;
       $('yn-text').textContent = `${ynText[yn]} ${meaning(card)}`;
       $('yn-link').href = state.pages.has(slug(card.name)) ? `/cards/${slug(card.name)}#yes-or-no` : '/yes-or-no-tarot';
       $('yn-answer').hidden = false; $('yn-progress').textContent = '';
-      if (yn === 'Y') { sounds.win(); confetti(); } else sounds.newCard();
+      sounds.reveal();
+      $('yn-care').textContent = careNote($('question').value); $('yn-care').hidden = !careNote($('question').value);
       collect(card, b);
       $('yn-answer').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
       state.ynWord = word;
@@ -407,7 +424,7 @@ $('yn-again').addEventListener('click', () => { $('yn-table').hidden = true; $('
 $('yn-share').addEventListener('click', () => {
   const card = state.ynCard; if (!card) return; const yn = yesNo(card);
   shareImage({title: 'I asked the cards…', lines: $('question').value.trim() ? [`“${$('question').value.trim()}”`] : [], cards: [{card, label: ''}],
-    big: yn === 'Y' ? 'YES' : yn === 'M' ? 'MAYBE' : 'NO', bigColor: yn === 'Y' ? '#7dffb0' : yn === 'M' ? '#ffd36e' : '#ff8fa3', text: `The cards said ${YES_NO_WORD[yn].toUpperCase()} 🔮`});
+    big: yn === 'Y' ? 'YES' : yn === 'M' ? 'MAYBE' : 'NO', bigColor: '#ffd36e', text: `The cards said ${YES_NO_WORD[yn].toUpperCase()} 🔮`});
 });
 
 // ---------------------------------------------------------------- controls
@@ -418,8 +435,14 @@ function setTopic(t) {
 }
 document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { setTopic(c.dataset.topic); sounds.tap(); }));
 $('question').addEventListener('input', () => { $('count').textContent = `${$('question').value.length} / 600`; });
+function showSupport() {
+  $('table').hidden = true; $('result').hidden = true; $('yn-table').hidden = true; closeSheet();
+  $('support').hidden = false; $('support').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
+}
 $('deal').addEventListener('click', () => {
   if (state.busy) return;
+  $('support').hidden = true;
+  if (CRISIS.test($('question').value)) { showSupport(); return; }
   $('deal').classList.add('shuffling'); sounds.tap();
   if (state.order && location.protocol !== 'file:') { history.replaceState({}, '', location.pathname); state.order = null; }
   setTimeout(() => { $('deal').classList.remove('shuffling'); if (state.mode === 'yesno') dealYesNo(); else dealReading(practice(state.topic, $('question').value.trim(), $('reversals').checked)); status(''); }, reduceMotion ? 0 : 650);
