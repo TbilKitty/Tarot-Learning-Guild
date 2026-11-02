@@ -81,3 +81,9 @@ export const DECK=rows.split('\n').map((line,id)=>{const [name,upright,reversed]
 export const POSITIONS=['The situation','What shapes it','The challenge','Your next step','A possible direction'];
 export function randomInt(max){const a=new Uint32Array(1); const limit=4294967296-(4294967296%max);do{crypto.getRandomValues(a)}while(a[0]>=limit);return a[0]%max;}
 export function drawDeck(reversals=true){const cards=DECK.map(c=>({...c,reversedCard:reversals && randomInt(2)===1}));for(let i=cards.length-1;i>0;i--){const j=randomInt(i+1);[cards[i],cards[j]]=[cards[j],cards[i]];}return cards;}
+// Traditional yes/no lean for each card, upright (Y = yes, M = maybe, N = no), in DECK order.
+// Reversed shifts one step toward "no" (yes→maybe, maybe→no), with a few traditional exceptions.
+const YN='YYMYYYYYYMYMMNYNNYNYYY'+'YMYYNYMYMNYYYY'+'YYYNNYNNYYMMMM'+'YMNMNYNNNNMMMY'+'YMYNNMMYYYYYYY';
+const YN_REVERSED_OVERRIDES={59:'M'}; // Ten of Swords reversed: recovery begins
+export function yesNo(card){const up=YN[card.id];if(!card.reversedCard)return up;return YN_REVERSED_OVERRIDES[card.id]||(up==='Y'?'M':'N');}
+export const YES_NO_WORD={Y:'Yes',M:'Maybe',N:'No'};

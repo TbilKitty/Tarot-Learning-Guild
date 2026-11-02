@@ -1,4 +1,4 @@
-import {DECK,POSITIONS,drawDeck} from './deck.mjs';
+import {DECK,POSITIONS,drawDeck,yesNo,YES_NO_WORD} from './deck.mjs';
 // Tarot Learning Guide — phone-first card game: daily card, tap-to-flip spread, collection, streaks.
 // Everything celebratory is tied to something real (a new card, a streak day, a finished reading).
 
@@ -8,7 +8,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('tlg:' + k, JSON.stringify(v)); } catch {} },
 };
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const state = {config: {enabled: false, freeEnabled: false}, topic: 'love', reading: null, revealed: 0, bonusRevealed: 0,
+const state = {config: {enabled: false, freeEnabled: false}, topic: 'love', mode: 'spread', ynCard: null, reading: null, revealed: 0, bonusRevealed: 0,
   busy: false, order: null, visitorToken: null, widgetId: null, remaining: 3, pages: new Set(), sound: store.get('sound', true)};
 
 const labels = {love: 'Love', career: 'Career', money: 'Money', other: 'Life'};
@@ -101,6 +101,66 @@ let toastTimer;
 function toast(text, kind = '') {
   const t = $('toast'); t.textContent = text; t.className = `toast show ${kind}`;
   clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+
+
+// ---------------------------------------------------------------- share images (story size, 1080×1920)
+const SUIT_GRAD = {major: ['#3b1a6e', '#6d28d9'], wands: ['#5a1e0e', '#c2410c'], cups: ['#0c2f5a', '#2563eb'], swords: ['#111827', '#64748b'], pentacles: ['#123d2a', '#15803d']};
+function roundRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function wrap(ctx, text, x, y, maxW, lh, maxLines = 4) {
+  const words = text.split(' '); let line = '', lines = [];
+  for (const w of words) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) { lines = lines.slice(0, maxLines); lines[maxLines - 1] += '…'; }
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lh)); return y + lines.length * lh;
+}
+function drawFace(ctx, card, x, y, w, h) {
+  const info = suitInfo[card.suit], [c1, c2] = SUIT_GRAD[info.cls];
+  ctx.save(); ctx.shadowColor = '#0009'; ctx.shadowBlur = w * 0.12; ctx.shadowOffsetY = w * 0.04;
+  roundRect(ctx, x, y, w, h, w * 0.09); const g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, c1); g.addColorStop(1, c2); ctx.fillStyle = g; ctx.fill(); ctx.restore();
+  ctx.save(); roundRect(ctx, x, y, w, h, w * 0.09); ctx.lineWidth = Math.max(3, w * 0.025); ctx.strokeStyle = '#ffd36e'; ctx.stroke();
+  ctx.translate(x + w / 2, y + h / 2); if (card.reversedCard) ctx.rotate(Math.PI);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${w * 0.36}px serif`; ctx.fillStyle = '#fff'; ctx.fillText(card.id < 22 ? majorEmoji[card.id] : info.emoji, 0, -h * 0.08);
+  ctx.font = `600 ${w * 0.1}px Georgia, serif`; wrap(ctx, card.name, 0, h * 0.24, w * 0.86, w * 0.12, 2);
+  const rank = card.id < 22 ? roman[card.id] : (rankShort[card.name.split(' of ')[0]] || '');
+  ctx.font = `700 ${w * 0.09}px Georgia, serif`; ctx.fillStyle = '#ffd36e'; ctx.textAlign = 'left'; ctx.fillText(rank, -w * 0.4, -h * 0.42);
+  ctx.restore();
+}
+async function shareImage({title, lines = [], cards = [], big = '', bigColor = '#ffd36e', text}) {
+  const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H; const ctx = c.getContext('2d');
+  const bg = ctx.createLinearGradient(0, 0, W * 0.3, H); bg.addColorStop(0, '#1b1030'); bg.addColorStop(0.55, '#2b1450'); bg.addColorStop(1, '#1a0f2e'); ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W); glow.addColorStop(0, '#7c3aed66'); glow.addColorStop(1, '#7c3aed00'); ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 140; i++) { ctx.globalAlpha = 0.25 + Math.random() * 0.6; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(Math.random() * W, Math.random() * H, Math.random() * 2.4 + 0.4, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ffd36e'; ctx.font = '700 38px system-ui, sans-serif'; ctx.fillText('✦  TAROT LEARNING GUIDE  ✦', W / 2, 150);
+  ctx.fillStyle = '#fff'; ctx.font = '600 76px Georgia, serif'; let y = wrap(ctx, title, W / 2, 270, W - 140, 86, 2);
+  ctx.font = 'italic 44px Georgia, serif'; ctx.fillStyle = '#e9dcf8'; for (const l of lines) y = wrap(ctx, l, W / 2, y + 20, W - 160, 56, 3);
+  if (cards.length === 1) {
+    const w = 460, h = w * 5 / 3; drawFace(ctx, cards[0].card, (W - w) / 2, y + 60, w, h); y += 60 + h;
+  } else if (cards.length) {
+    const w = 270, h = w * 5 / 3, gap = 40, top = y + 70;
+    cards.forEach(({card, label}, i) => {
+      const row = i < 3 ? 0 : 1, inRow = row === 0 ? Math.min(3, cards.length) : cards.length - 3, col = row === 0 ? i : i - 3;
+      const x = (W - (inRow * w + (inRow - 1) * gap)) / 2 + col * (w + gap), yy = top + row * (h + 110);
+      ctx.fillStyle = '#d9c9ef'; ctx.font = '600 30px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, x + w / 2, yy - 18);
+      drawFace(ctx, card, x, yy, w, h);
+    });
+    y = top + 2 * (h + 110) - 60;
+  }
+  if (big) { ctx.fillStyle = bigColor; ctx.font = '800 170px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.shadowColor = bigColor; ctx.shadowBlur = 40; ctx.fillText(big, W / 2, Math.min(y + 210, H - 330)); ctx.shadowBlur = 0; }
+  const by = H - 230; const cg = ctx.createLinearGradient(140, by, W - 140, by + 130); cg.addColorStop(0, '#ffe08a'); cg.addColorStop(0.55, '#ffb347'); cg.addColorStop(1, '#ff7ac6');
+  roundRect(ctx, 120, by, W - 240, 130, 40); ctx.fillStyle = cg; ctx.fill();
+  ctx.fillStyle = '#2b1450'; ctx.font = '800 44px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('Flip your own cards free', W / 2, by + 60);
+  ctx.font = '700 36px system-ui, sans-serif'; ctx.fillText(location.host || 'tarotlearningguide.com', W / 2, by + 108);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  const file = new File([blob], 'my-tarot-reading.png', {type: 'image/png'});
+  const shareText = `${text}\n${location.origin || 'https://tarotlearningguide.com'}`;
+  try {
+    if (navigator.canShare?.({files: [file]})) { await navigator.share({files: [file], text: shareText, title: 'My tarot reading'}); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const url = URL.createObjectURL(blob), a = el('a'); a.href = url; a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast('🖼️ Image saved! Post it to your story.');
 }
 
 // ---------------------------------------------------------------- card faces
@@ -216,7 +276,7 @@ function practice(topic, question, reversals) {
 function dealReading(reading) {
   state.reading = reading; state.revealed = 0; state.bonusRevealed = 0;
   $('result').hidden = true; $('bonus-table').hidden = true; $('clarifier-story').hidden = true; $('bonus').hidden = false;
-  $('table').hidden = false; closeSheet();
+  $('table').hidden = false; $('yn-table').hidden = true; closeSheet();
   $('reading-kind').textContent = reading.demo ? 'YOUR FIVE-CARD SPREAD' : '✦ YOUR PERSONAL AI READING ✦';
   $('reading-question').textContent = reading.question ? `“${reading.question}”` : `A ${labels[reading.topic].toLowerCase()} reading`;
   $('dots').replaceChildren(...POSITIONS.map(() => el('span', 'dot')));
@@ -299,6 +359,57 @@ $('bonus').addEventListener('click', () => {
   spread.scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
 });
 
+
+// ---------------------------------------------------------------- yes or no mode
+const ynText = {
+  Y: 'The card leans yes. The energy supports moving forward.',
+  M: 'The card says maybe. The answer depends on choices or details that are still open.',
+  N: 'The card leans no, at least not in the way things stand right now.',
+};
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-selected', String(b.dataset.mode === m)));
+  const yn = m === 'yesno';
+  $('chips').hidden = yn; $('play-sub').textContent = yn ? 'Ask a yes-or-no question, then flip one card for your answer.' : 'Pick a topic, shuffle, then flip your five cards one by one.';
+  $('question').placeholder = yn ? 'Will…? Should I…? Is…?' : placeholders[state.topic];
+  $('deal').textContent = yn ? '✅ Draw my answer' : '🔮 Shuffle & deal my cards';
+  $('table').hidden = true; $('result').hidden = true; $('yn-table').hidden = true; closeSheet();
+}
+document.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => { setMode(b.dataset.mode); sounds.tap(); }));
+function dealYesNo() {
+  const card = drawDeck($('reversals').checked)[0]; state.ynCard = card;
+  $('yn-question').textContent = $('question').value.trim() ? `“${$('question').value.trim()}”` : 'Your yes-or-no question';
+  $('yn-answer').hidden = true; $('yn-table').hidden = false; $('yn-progress').textContent = 'Tap the card to get your answer 👆';
+  const spread = $('yn-spread'); spread.replaceChildren();
+  const slot = el('div', 'slot'); const b = flipCard(card, 'Tap to reveal your answer'); b.classList.add('big', 'beckon');
+  b.addEventListener('click', () => {
+    if (b.classList.contains('flipped')) return;
+    b.classList.remove('beckon'); b.classList.add('flipped'); b.disabled = true; sounds.flip(); burstFrom(b, 24, 0.7);
+    setTimeout(() => {
+      const yn = yesNo(card), word = YES_NO_WORD[yn];
+      $('yn-word').textContent = yn === 'Y' ? 'YES ✨' : yn === 'M' ? 'MAYBE…' : 'NO';
+      $('yn-word').className = `yn-word ${yn}`;
+      $('yn-card').textContent = `${card.name}${card.reversedCard ? ' (reversed)' : ''}`;
+      $('yn-text').textContent = `${ynText[yn]} ${meaning(card)}`;
+      $('yn-link').href = state.pages.has(slug(card.name)) ? `/cards/${slug(card.name)}#yes-or-no` : '/yes-or-no-tarot';
+      $('yn-answer').hidden = false; $('yn-progress').textContent = '';
+      if (yn === 'Y') { sounds.win(); confetti(); } else sounds.newCard();
+      collect(card, b);
+      $('yn-answer').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
+      state.ynWord = word;
+    }, 560);
+  });
+  slot.append(b); spread.append(slot);
+  spread.classList.remove('dealt'); void spread.offsetWidth; spread.classList.add('dealt');
+  $('yn-table').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'start'});
+}
+$('yn-again').addEventListener('click', () => { $('yn-table').hidden = true; $('question').value = ''; $('question').focus(); $('play').scrollIntoView({behavior: 'smooth'}); });
+$('yn-share').addEventListener('click', () => {
+  const card = state.ynCard; if (!card) return; const yn = yesNo(card);
+  shareImage({title: 'I asked the cards…', lines: $('question').value.trim() ? [`“${$('question').value.trim()}”`] : [], cards: [{card, label: ''}],
+    big: yn === 'Y' ? 'YES' : yn === 'M' ? 'MAYBE' : 'NO', bigColor: yn === 'Y' ? '#7dffb0' : yn === 'M' ? '#ffd36e' : '#ff8fa3', text: `The cards said ${YES_NO_WORD[yn].toUpperCase()} 🔮`});
+});
+
 // ---------------------------------------------------------------- controls
 function setTopic(t) {
   state.topic = t;
@@ -311,7 +422,7 @@ $('deal').addEventListener('click', () => {
   if (state.busy) return;
   $('deal').classList.add('shuffling'); sounds.tap();
   if (state.order && location.protocol !== 'file:') { history.replaceState({}, '', location.pathname); state.order = null; }
-  setTimeout(() => { $('deal').classList.remove('shuffling'); dealReading(practice(state.topic, $('question').value.trim(), $('reversals').checked)); status(''); }, reduceMotion ? 0 : 650);
+  setTimeout(() => { $('deal').classList.remove('shuffling'); if (state.mode === 'yesno') dealYesNo(); else dealReading(practice(state.topic, $('question').value.trim(), $('reversals').checked)); status(''); }, reduceMotion ? 0 : 650);
 });
 $('again').addEventListener('click', () => { $('result').hidden = true; $('table').hidden = true; $('play').scrollIntoView({behavior: 'smooth'}); $('deal').focus({preventScroll: true}); });
 $('sound').addEventListener('click', () => {
@@ -325,9 +436,14 @@ function readingText() {
   r.deck.slice(0, 5).forEach((c, i) => { text += `${i + 1}. ${POSITIONS[i]}: ${c.name}${c.reversedCard ? ' (reversed)' : ''}\n`; });
   return text + `\n${r.content.summary}\n\nReflection: ${r.content.reflection}`;
 }
-$('share').addEventListener('click', async () => {
-  const text = readingText() + `\n\nFlip your own cards: ${location.origin}`;
-  try { if (navigator.share) await navigator.share({title: 'My tarot reading', text}); else { await navigator.clipboard.writeText(text); toast('📋 Copied! Paste it anywhere.'); } } catch {}
+$('share').addEventListener('click', () => {
+  const r = state.reading; if (!r) return;
+  shareImage({title: `My ${labels[r.topic].toLowerCase()} reading ✨`, lines: r.question ? [`“${r.question}”`] : [],
+    cards: r.deck.slice(0, 5).map((card, i) => ({card, label: POSITIONS[i]})), text: `My ${labels[r.topic].toLowerCase()} tarot reading 🔮`});
+});
+$('daily-share').addEventListener('click', () => {
+  const d = store.get('daily', null); if (!d) return; const card = {...DECK[d.id], reversedCard: d.rev};
+  shareImage({title: 'My card of the day', lines: [`${card.name}${card.reversedCard ? ' (reversed)' : ''}`, meaning(card)], cards: [{card, label: ''}], text: `My tarot card of the day: ${card.name} ✨`});
 });
 $('download').addEventListener('click', () => {
   const text = 'TAROT LEARNING GUIDE\n' + readingText() + '\n\nFor reflection and entertainment. No outcome is guaranteed.';
@@ -402,6 +518,7 @@ $('retry').addEventListener('click', () => restore(new URL(location.href).search
 async function init() {
   $('sound').textContent = state.sound ? '🔊' : '🔇'; $('sound').setAttribute('aria-pressed', String(state.sound));
   setTopic('love'); renderProgress(); daily();
+  if (new URL(location.href).searchParams.get('mode') === 'yesno' || location.hash === '#yes-no') setMode('yesno');
   if (location.protocol === 'file:') return;
   try { const r = await fetch('/card-pages.json'); if (r.ok) state.pages = new Set(await r.json()); } catch {}
   try { const r = await fetch('/api/config'); if (r.ok) state.config = await r.json(); } catch {}
