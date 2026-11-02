@@ -115,6 +115,7 @@ export async function buildPages(prompts = []) {
       if (!c[side]?.[f]) throw new Error(`${card.name}: missing ${side}.${f}`);
     await writeFile(`public/cards/${slug(card.name)}.html`, cardPage(card, c, withContent[i - 1], withContent[i + 1], prompts[card.id] || ''));
   }
+  await writeFile('public/card-pages.json', JSON.stringify(withContent.map(c => slug(c.name))));
   await writeFile('public/about.html', about());
   await writeFile('public/404.html', shell({title: `Page not found | ${SITE.name}`, description: 'This page could not be found.', path: '/404', body: `
 <article class="card-article"><h1>That card isn’t in the deck</h1><p>The page you were looking for doesn’t exist or has moved.</p>

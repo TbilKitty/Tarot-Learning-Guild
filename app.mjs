@@ -1,35 +1,428 @@
 import {DECK,POSITIONS,drawDeck} from './deck.mjs';
-const $=id=>document.getElementById(id);
-const state={config:{enabled:false,freeEnabled:false},reading:null,clarifiersOpen:false,busy:false,order:null,visitorToken:null,widgetId:null,remaining:3};
-const labels={love:'Love',career:'Job / Career',money:'Money',other:'Other'};
-const lens={love:'Consider reciprocity, boundaries, and what has actually been communicated.',career:'Consider your role, working relationships, and one practical action within your control.',money:'Reflect on habits, resources, and priorities. Check real figures before making a financial decision.',other:'Connect this theme to what you can observe and choose in your own situation.'};
-const prompts={love:'What could help me understand this connection more clearly?',career:'What should I consider about my next career step?',money:'What patterns could I examine in my relationship with money?',other:'What could help me see this situation differently?'};
-function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
-function status(text){$('status').textContent=text;}
-function busy(value){state.busy=value;$('begin').disabled=value;$('free-ai').disabled=value;$('purchase').disabled=value;$('retry').disabled=value;}
-function cardFace(card){const node=el('div','card front'+(card.reversedCard?' reversed':''));node.append(el('span','card-number',card.id<22?String(card.id).padStart(2,'0'):card.name.split(' of ')[0]),el('div','card-name',card.name),el('span','card-suit',card.suit),el('span','orientation',card.reversedCard?'↻ Reversed':'Upright'));return node;}
-function drawBacks(){const node=$('cards');node.replaceChildren();POSITIONS.forEach((p,i)=>{const wrap=el('div','card-wrap');wrap.append(el('p','position',`${i+1} · ${p}`));const card=el('div','card back');card.setAttribute('aria-label',`Face-down card ${i+1}: ${p}`);wrap.append(card);node.append(wrap);});}
-function demo(topic,question,reversals){const deck=drawDeck(reversals).slice(0,8);const clarifierNames=deck.slice(5).map(x=>`${x.name}${x.reversedCard?' reversed':''}: ${x.reversedCard?x.reversed:x.upright}`).join('\n\n');return {topic,question,deck,demo:true,content:{summary:`This demonstration brings five separate themes into a single spread. Start with ${deck[0].name}, then compare its theme with the challenge represented by ${deck[2].name}. The fourth card offers a reflection for your next step; the fifth suggests a possibility to explore, rather than a prediction. ${lens[topic]}\n\nThese are written examples. A personal AI reading, once available, will connect all five cards and the shared clarification row to the wording of your question.`,cards:deck.slice(0,5).map((c,i)=>({interpretation:`${c.reversedCard?c.reversed:c.upright} In the “${POSITIONS[i].toLowerCase()}” position, ask how this theme appears in your experience. ${lens[topic]}`})),clarification:`${clarifierNames}\n\nRead these three cards together as one extra lens on the complete five-card story. Notice which main themes they reinforce, complicate, or redirect.`,reflection:'What is one thing you can verify, one thing you can influence, and one thing you can allow to remain uncertain?'}};}
-function render(){const r=state.reading;$('cards').replaceChildren();r.deck.slice(0,5).forEach((card,i)=>{const wrap=el('div','card-wrap');wrap.append(el('p','position',`${i+1} · ${POSITIONS[i]}`),cardFace(card));const info=el('details','card-lesson');info.append(el('summary','','Learn this card'),el('p','',`${card.reversedCard?'Reversed':'Upright'}: ${card.reversedCard?card.reversed:card.upright}`));const guide=el('a','guide-link','Full card entry ↗');guide.href=`card-meanings.html#${card.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}`;guide.target='_blank';guide.rel='noopener';info.append(guide);wrap.append(info);$('cards').append(wrap);});$('clarify-spread').hidden=false;$('clarify-spread').textContent=state.clarifiersOpen?'View the 3 spread clarifiers':'Reveal 3 clarifiers for the full spread ✦';$('clarify-spread').setAttribute('aria-pressed',String(state.clarifiersOpen));$('table-title').textContent='Your question, in five cards.';$('reading-question').textContent=r.question||`A ${labels[r.topic].toLowerCase()} reflection`;$('reading-kind').textContent=r.demo?'Demo · Written examples':'Personal AI reading';$('story-title').textContent=`Your ${labels[r.topic].toLowerCase()} reading`;$('summary').textContent=r.content.summary;$('reflection').textContent=r.content.reflection;$('individuals').replaceChildren();r.content.cards.forEach((c,i)=>{const a=el('article','individual');a.append(el('h3','',`${i+1}. ${POSITIONS[i]} · ${r.deck[i].name}`),el('p','',c.interpretation));$('individuals').append(a);});$('reading').hidden=false;}
-function clarify(){state.clarifiersOpen=true;render();const cards=state.reading.deck.slice(5,8);$('clarify-title').textContent='Three cards for the full spread';$('clarifier-cards').replaceChildren(...cards.map(card=>{const wrap=el('div','clarifier-wrap');wrap.append(cardFace(card));const info=el('details','card-lesson');info.append(el('summary','','Learn this card'),el('p','',card.reversedCard?card.reversed:card.upright));wrap.append(info);return wrap;}));$('clarifier-story').textContent=state.reading.content.clarification||state.reading.content.cards.map(c=>c.clarification).filter(Boolean).join('\n\n');$('clarification').hidden=false;$('clarification').focus({preventScroll:true});$('clarification').scrollIntoView({behavior:'smooth',block:'start'});}
-async function api(path,body,token){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),115000);try{const response=await fetch(`/api/${path}`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})},body:JSON.stringify(body),signal:controller.signal});const result=await response.json();if(!response.ok)throw new Error(result.error||'The request could not be completed.');return result;}finally{clearTimeout(timer);}}
-function accessKey(order){return `fifth-card:${order}`;}
-function randomKey(){return Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');}
-async function refreshFree(){if(!state.visitorToken)return;try{const info=await api('free-status',{token:state.visitorToken});state.remaining=info.remaining;$('free-count').textContent=info.remaining?`${info.remaining} of 3 free personal AI readings left in this browser`:'Your three free personal AI readings have been used.';$('free-ai').hidden=info.remaining===0;$('human-check').hidden=info.remaining===0;$('purchase').hidden=info.remaining>0||!state.config.enabled;$('purchase-note').textContent=info.remaining?'Unlimited written practice is also available above.':state.config.enabled?'Continue with written practice, or purchase a $2 personal AI reading.':'Continue with unlimited written practice.';}catch{status('Could not check your free reading count. Try reloading the page.');}}
-async function restore(order){busy(true);$('retry').hidden=true;status('Retrieving your reading. The AI interpretation can take about a minute…');try{const token=localStorage.getItem(accessKey(order));if(!token)throw new Error('This browser does not have the access key for this reading. Use the original browser, or contact support if you paid.');const result=await api('reading',{order},token);state.order=order;state.reading=result;state.clarifiersOpen=false;$('clarification').hidden=true;render();status('Your reading is ready. Its three shared clarifiers are included.');$('cards').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){status(e.name==='AbortError'?'Your reading is taking longer than expected. Retry below; this will not create a new charge or use another free reading.':e.message);$('retry').hidden=false;}finally{busy(false);}}
-$('begin').addEventListener('click',async()=>{if(state.busy)return;const topic=document.querySelector('input[name=topic]:checked').value;const question=$('question').value.trim();{state.reading=demo(topic,question,$('reversals').checked);state.clarifiersOpen=false;$('clarification').hidden=true;render();status('Demo reading ready. No payment was made.');$('cards').scrollIntoView({behavior:'smooth',block:'start'});return;}});
-$('purchase').addEventListener('click',async()=>{if(state.busy)return;const topic=document.querySelector('input[name=topic]:checked').value;const question=$('question').value.trim();if(question.length<8){status('Please enter a question of at least 8 characters.');$('question').focus();return;}busy(true);status('Opening secure checkout…');try{const token=randomKey();localStorage.setItem('fifth-card-storage-check','ok');localStorage.removeItem('fifth-card-storage-check');const result=await api('checkout',{topic,question,reversals:$('reversals').checked,token});localStorage.setItem(accessKey(result.order),token);location.assign(result.url);}catch(e){status(e.message||'Checkout could not open. Check that browser storage is enabled and try again.');busy(false);}});
-$('free-ai').addEventListener('click',async()=>{if(state.busy)return;const topic=document.querySelector('input[name=topic]:checked').value;const question=$('question').value.trim();if(question.length<8){status('Please enter a question of at least 8 characters.');$('question').focus();return;}const turnstile=window.turnstile?.getResponse(state.widgetId);if(!turnstile){status('Complete the human check before using a free AI reading.');return;}busy(true);status('Claiming a free personal reading…');try{const result=await api('free',{topic,question,reversals:$('reversals').checked,token:state.visitorToken,turnstile});localStorage.setItem(accessKey(result.order),state.visitorToken);history.replaceState({},'',`?order=${result.order}`);await refreshFree();await restore(result.order);}catch(e){status(e.message||'Your free reading could not be started. Please retry.');}finally{if(window.turnstile&&state.widgetId!==null)window.turnstile.reset(state.widgetId);busy(false);}});
-$('retry').addEventListener('click',()=>restore(new URL(location.href).searchParams.get('order')));
-$('question').addEventListener('input',()=>{$('count').textContent=`${$('question').value.length} / 600`;});
-document.querySelectorAll('input[name=topic]').forEach(n=>n.addEventListener('change',()=>{$('question').placeholder=prompts[n.value];}));
-$('clarify-spread').addEventListener('click',clarify);
-$('close-clarify').addEventListener('click',()=>{$('clarification').hidden=true;state.clarifiersOpen=false;render();$('clarify-spread').focus();});
-$('new-reading').addEventListener('click',()=>{state.reading=null;state.order=null;state.clarifiersOpen=false;$('reading').hidden=true;$('clarification').hidden=true;$('clarify-spread').hidden=true;$('reading-question').textContent='';$('table-title').textContent='A moment to pause.';$('reading-kind').textContent='78 cards · One question';drawBacks();if(location.protocol!=='file:')history.replaceState({},'',location.pathname);$('question').value='';$('count').textContent='0 / 600';status('');$('question').focus();$('start-heading').scrollIntoView({behavior:'smooth'});});
-$('download').addEventListener('click',()=>{const r=state.reading;let text=`TAROT LEARNING GUIDE\n${r.demo?'WRITTEN DEMO':'PERSONAL AI READING'}\nTopic: ${labels[r.topic]}\nQuestion: ${r.question}\n\n${r.content.summary}\n`;r.deck.slice(0,5).forEach((c,i)=>{text+=`\n${POSITIONS[i]}: ${c.name} (${c.reversedCard?'reversed':'upright'})\n${r.content.cards[i].interpretation}\n`;});text+=`\nTHREE CLARIFIERS FOR THE FULL SPREAD\n${r.deck.slice(5,8).map(x=>x.name+(x.reversedCard?' reversed':' upright')).join(', ')}\n${r.content.clarification||r.content.cards.map(c=>c.clarification).filter(Boolean).join('\n\n')}\n\nReflection: ${r.content.reflection}\n\nFor reflection and entertainment. No outcome is guaranteed.`;const url=URL.createObjectURL(new Blob([text],{type:'text/plain'}));const a=el('a');a.href=url;a.download='my-five-card-reading.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
-drawBacks();
-async function init(){if(location.protocol!=='file:'){try{const r=await fetch('/api/config');if(r.ok)state.config=await r.json();}catch{}}if(state.config.enabled){$('purchase').hidden=false;$('purchase').textContent=state.config.testMode?'Get a test AI reading · $2':'Get a personalized AI reading · $2';}
- if(state.config.freeEnabled){$('mode').textContent='3 free AI readings';$('free-zone').hidden=false;try{state.visitorToken=localStorage.getItem('tarot-guild-visitor')||randomKey();localStorage.setItem('tarot-guild-visitor',state.visitorToken);await refreshFree();if(state.remaining>0){const script=el('script');script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';script.async=true;script.onload=()=>{state.widgetId=window.turnstile.render('#human-check',{sitekey:state.config.turnstileSiteKey,theme:'dark',size:'flexible'});};script.onerror=()=>status('The human check did not load. Try reloading this page.');document.head.append(script);}}catch{status('Browser storage is required to keep track of free readings. Enable it and reload.');$('free-zone').hidden=true;}}
- if(state.config.enabled||state.config.freeEnabled){$('privacy-copy').replaceChildren();$('privacy-copy').append(el('p','',`Your question, topic, drawn cards and AI reading are stored for up to 30 days and sent to OpenAI for interpretation. Provider retention policies also apply. Free AI readings use Cloudflare Turnstile to check for automated requests. A random browser key tracks your three free uses; a limited hashed network identifier controls abuse. Your browser also stores reading access keys so you can reopen a reading here. No ad or analytics scripts are installed.`),el('p','',`Each personal reading includes one question, five main cards, and three shared clarifiers for the complete spread. After three free personal readings in this browser, additional readings cost $2 each. Switching browsers or clearing storage can reset the browser count; a shared network or abuse limit can also block free uses. If you pay, Stripe processes your card, which never passes through this site. Save your return URL and use this browser. If delivery fails, retry; contact ${state.config.supportEmail} for purchase support or a delivery-failure refund.`));}
- const order=new URL(location.href).searchParams.get('order');if(order){state.order=order;await restore(order);}if(new URL(location.href).searchParams.has('cancelled'))status('Checkout was cancelled. No charge was made.');}
+// Tarot Learning Guide — phone-first card game: daily card, tap-to-flip spread, collection, streaks.
+// Everything celebratory is tied to something real (a new card, a streak day, a finished reading).
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tlg:' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('tlg:' + k, JSON.stringify(v)); } catch {} },
+};
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const state = {config: {enabled: false, freeEnabled: false}, topic: 'love', reading: null, revealed: 0, bonusRevealed: 0,
+  busy: false, order: null, visitorToken: null, widgetId: null, remaining: 3, pages: new Set(), sound: store.get('sound', true)};
+
+const labels = {love: 'Love', career: 'Career', money: 'Money', other: 'Life'};
+const lens = {
+  love: 'Think about what has actually been said and shown, not only what you hope or fear.',
+  career: 'Think about one practical step that is within your control this week.',
+  money: 'Check real numbers before any big money decision.',
+  other: 'Connect it to something you can actually observe or choose.',
+};
+const placeholders = {love: 'What should I know about this connection?', career: 'What should I consider about my next move at work?',
+  money: 'What should I notice about my money habits right now?', other: 'What do I need to see more clearly?'};
+const positionPrompt = [
+  'This is where things stand right now.',
+  'This is the force shaping the situation, often from the background.',
+  'This is the challenge: the knot to work with, not a verdict.',
+  'This is a helpful next step to try.',
+  'This is one possible direction if things continue as they are.',
+];
+const suitInfo = {
+  'Major Arcana': {emoji: '✦', cls: 'major', energy: 'big life lessons'},
+  Wands: {emoji: '🔥', cls: 'wands', energy: 'drive, passion and action'},
+  Cups: {emoji: '💧', cls: 'cups', energy: 'feelings and relationships'},
+  Swords: {emoji: '⚔️', cls: 'swords', energy: 'thoughts, decisions and conflict'},
+  Pentacles: {emoji: '🪙', cls: 'pentacles', energy: 'money, work and everyday life'},
+};
+const majorEmoji = ['🎒','🪄','🌙','🌾','👑','🔑','💞','🏇','🦁','🏮','☸️','⚖️','🙃','🦋','⚗️','⛓️','⚡','⭐','🌕','☀️','📯','🌍'];
+const roman = ['0','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX','XX','XXI'];
+const rankShort = {Ace: 'A', Two: '2', Three: '3', Four: '4', Five: '5', Six: '6', Seven: '7', Eight: '8', Nine: '9', Ten: '10', Page: 'P', Knight: 'Kn', Queen: 'Q', King: 'K'};
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const cardUrl = c => state.pages.has(slug(c.name)) ? `/cards/${slug(c.name)}` : `/card-meanings#${slug(c.name)}`;
+const meaning = c => c.reversedCard ? c.reversed : c.upright;
+const today = () => new Date().toLocaleDateString('en-CA');
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA'); };
+
+function el(tag, cls, text) { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+function status(text) { $('status').textContent = text; }
+
+// ---------------------------------------------------------------- feedback
+let audio;
+function tone(freqs, dur = 0.12, gap = 0.07, vol = 0.05) {
+  if (!state.sound) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    freqs.forEach((f, i) => {
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * gap;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur + 0.02);
+    });
+  } catch {}
+}
+const buzz = p => { try { navigator.vibrate?.(p); } catch {} };
+const sounds = {
+  flip: () => { tone([660, 990], 0.14, 0.06); buzz(18); },
+  newCard: () => { tone([784, 988, 1319], 0.18, 0.08, 0.06); buzz([20, 40, 20]); },
+  win: () => { tone([523, 659, 784, 1047, 1319], 0.22, 0.09, 0.07); buzz([30, 50, 30, 50, 60]); },
+  tap: () => { tone([520], 0.06, 0, 0.03); buzz(8); },
+};
+
+// confetti / sparkles on a canvas
+const fx = {parts: [], running: false};
+function burst(x, y, n = 40, spread = 1) {
+  if (reduceMotion) return;
+  const colors = ['#ffd36e', '#ff7ac6', '#a98bff', '#7ee0ff', '#ffffff'];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (2 + Math.random() * 6) * spread;
+    fx.parts.push({x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 3, life: 60 + Math.random() * 40, size: 3 + Math.random() * 5,
+      color: colors[i % colors.length], star: Math.random() < 0.35, rot: Math.random() * 6});
+  }
+  if (!fx.running) { fx.running = true; requestAnimationFrame(tick); }
+}
+function burstFrom(node, n, spread) { const r = node.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2, n, spread); }
+function confetti() { const w = innerWidth; [0.2, 0.5, 0.8].forEach((p, i) => setTimeout(() => burst(w * p, innerHeight * 0.35, 60, 1.4), i * 150)); }
+function tick() {
+  const c = $('fx'), ctx = c.getContext('2d'), dpr = devicePixelRatio || 1;
+  if (c.width !== innerWidth * dpr) { c.width = innerWidth * dpr; c.height = innerHeight * dpr; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, innerWidth, innerHeight);
+  fx.parts = fx.parts.filter(p => p.life-- > 0);
+  for (const p of fx.parts) {
+    p.vy += 0.18; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.rot += 0.1;
+    ctx.globalAlpha = Math.min(1, p.life / 30); ctx.fillStyle = p.color;
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    if (p.star) { ctx.beginPath(); for (let k = 0; k < 5; k++) { ctx.lineTo(0, -p.size); ctx.rotate(Math.PI / 5); ctx.lineTo(0, -p.size / 2.4); ctx.rotate(Math.PI / 5); } ctx.fill(); }
+    else ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+    ctx.restore();
+  }
+  if (fx.parts.length) requestAnimationFrame(tick); else { fx.running = false; ctx.clearRect(0, 0, innerWidth, innerHeight); }
+}
+let toastTimer;
+function toast(text, kind = '') {
+  const t = $('toast'); t.textContent = text; t.className = `toast show ${kind}`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = 'toast'; }, 2600);
+}
+
+// ---------------------------------------------------------------- card faces
+function faceContent(card) {
+  const info = suitInfo[card.suit];
+  const node = el('span', `face-art ${info.cls}${card.reversedCard ? ' rev' : ''}`);
+  const rank = card.id < 22 ? roman[card.id] : (rankShort[card.name.split(' of ')[0]] || '');
+  node.append(el('span', 'rank', rank), el('span', 'symbol', card.id < 22 ? majorEmoji[card.id] : info.emoji),
+    el('span', 'fname', card.name), el('span', 'rank bottom', rank));
+  return node;
+}
+function flipCard(card, label) {
+  const b = el('button', 'flip-card'); b.type = 'button'; b.setAttribute('aria-label', label);
+  const inner = el('span', 'flip-inner'), back = el('span', 'face back'), front = el('span', 'face front');
+  front.append(faceContent(card)); inner.append(back, front); b.append(inner);
+  return b;
+}
+
+// ---------------------------------------------------------------- collection, streak, badges
+const BADGES = [
+  {id: 'first', name: 'First flip', icon: '🌟', test: s => s.size >= 1},
+  {id: 'ten', name: '10 cards', icon: '🎴', test: s => s.size >= 10},
+  {id: 'majors', name: 'All 22 Major Arcana', icon: '👑', test: s => DECK.slice(0, 22).every(c => s.has(c.id))},
+  {id: 'wands', name: 'Every Wand', icon: '🔥', test: s => DECK.filter(c => c.suit === 'Wands').every(c => s.has(c.id))},
+  {id: 'cups', name: 'Every Cup', icon: '💧', test: s => DECK.filter(c => c.suit === 'Cups').every(c => s.has(c.id))},
+  {id: 'swords', name: 'Every Sword', icon: '⚔️', test: s => DECK.filter(c => c.suit === 'Swords').every(c => s.has(c.id))},
+  {id: 'pentacles', name: 'Every Pentacle', icon: '🪙', test: s => DECK.filter(c => c.suit === 'Pentacles').every(c => s.has(c.id))},
+  {id: 'deck', name: 'Full deck: all 78', icon: '🏆', test: s => s.size >= 78},
+  {id: 'streak3', name: '3-day streak', icon: '🔥', test: (s, st) => st >= 3},
+  {id: 'streak7', name: '7-day streak', icon: '💫', test: (s, st) => st >= 7},
+  {id: 'streak30', name: '30-day streak', icon: '🌙', test: (s, st) => st >= 30},
+];
+const collection = new Set(store.get('collection', []));
+function streakCount() { const s = store.get('streak', {last: null, count: 0}); return s.last === today() || s.last === yesterday() ? s.count : 0; }
+function renderProgress() {
+  $('collected').textContent = collection.size; $('streak').textContent = streakCount();
+  $('collection-bar').style.setProperty('width', `${(collection.size / 78) * 100}%`);
+  $('collection-progress').setAttribute('aria-valuenow', String(collection.size));
+  const have = new Set(store.get('badges', []));
+  $('badges').replaceChildren(...BADGES.filter(b => have.has(b.id)).map(b => el('span', 'badge', `${b.icon} ${b.name}`)));
+}
+function checkBadges() {
+  const have = new Set(store.get('badges', [])), st = streakCount();
+  for (const b of BADGES) if (!have.has(b.id) && b.test(collection, st)) {
+    have.add(b.id); store.set('badges', [...have]);
+    setTimeout(() => { toast(`${b.icon} Badge unlocked: ${b.name}!`, 'gold'); sounds.win(); confetti(); }, 900);
+  }
+}
+function collect(card, node) {
+  const isNew = !collection.has(card.id);
+  if (isNew) {
+    collection.add(card.id); store.set('collection', [...collection]);
+    node.classList.add('is-new'); node.append(el('span', 'new-tag', 'NEW!'));
+    setTimeout(() => { sounds.newCard(); burstFrom(node, 30, 0.8); toast(`✨ New card collected! ${collection.size}/78`); }, 350);
+  }
+  renderProgress(); checkBadges();
+  return isNew;
+}
+
+// ---------------------------------------------------------------- daily card
+function daily() {
+  const saved = store.get('daily', null);
+  const done = saved && saved.date === today();
+  const card = done ? {...DECK[saved.id], reversedCard: saved.rev} : null;
+  const btn = $('daily-card');
+  if (done) { $('daily-front').replaceChildren(faceContent(card)); btn.classList.add('flipped'); showDaily(card); return; }
+  btn.classList.add('beckon');
+  btn.addEventListener('click', () => {
+    if (btn.classList.contains('flipped')) return;
+    const c = drawDeck(true)[0];
+    store.set('daily', {date: today(), id: c.id, rev: c.reversedCard});
+    const s = store.get('streak', {last: null, count: 0});
+    const count = s.last === today() ? s.count : s.last === yesterday() ? s.count + 1 : 1;
+    store.set('streak', {last: today(), count});
+    $('daily-front').replaceChildren(faceContent(c));
+    btn.classList.remove('beckon'); btn.classList.add('flipped'); sounds.flip(); burstFrom(btn, 50, 1.1);
+    setTimeout(() => { showDaily(c); collect(c, btn); if (count > 1) toast(`🔥 ${count}-day streak!`, 'gold'); }, 450);
+  }, {once: false});
+}
+function showDaily(card) {
+  $('daily-hint').hidden = true;
+  $('daily-name').textContent = `${card.name}${card.reversedCard ? ' (reversed)' : ''}`;
+  $('daily-meaning').textContent = meaning(card);
+  $('daily-link').href = cardUrl(card);
+  $('daily-result').hidden = false;
+}
+
+// ---------------------------------------------------------------- reading content
+function practice(topic, question, reversals) {
+  const deck = drawDeck(reversals).slice(0, 8);
+  const main = deck.slice(0, 5);
+  const counts = {}; main.forEach(c => { counts[c.suit] = (counts[c.suit] || 0) + 1; });
+  const top = Object.entries(counts).filter(([s]) => s !== 'Major Arcana').sort((a, b) => b[1] - a[1])[0];
+  const majors = counts['Major Arcana'] || 0, revs = main.filter(c => c.reversedCard).length;
+  const insights = [];
+  if (top && top[1] >= 2) insights.push(`${suitInfo[top[0]].emoji} Mostly ${top[0]}: this reading is about ${suitInfo[top[0]].energy}.`);
+  if (majors >= 2) insights.push(`✦ ${majors} Major Arcana cards: a bigger turning point, not just a passing mood.`);
+  else if (majors === 1) insights.push(`✦ One Major Arcana card (${main.find(c => c.id < 22).name}) carries the main lesson.`);
+  if (revs >= 3) insights.push(`↻ ${revs} reversed cards: something feels blocked, delayed or private right now.`);
+  else if (revs === 0) insights.push('↑ Every card upright: the themes are out in the open and moving.');
+  const summary = `Your story in five cards: ${main.map(c => c.name).join(' → ')}. `
+    + `The card to act on is ${main[3].name}, in the “next step” spot. ${meaning(main[3])} `
+    + `Keep an eye on ${main[2].name}, your challenge: ${meaning(main[2]).charAt(0).toLowerCase() + meaning(main[2]).slice(1)} ${lens[topic]}`;
+  return {topic, question, deck, demo: true, content: {
+    summary, insights,
+    cards: main.map((c, i) => ({interpretation: `${positionPrompt[i]} ${meaning(c)} ${lens[topic]}`})),
+    clarification: `${deck.slice(5).map(c => `${c.name}${c.reversedCard ? ' (reversed)' : ''}: ${meaning(c)}`).join(' ')} Read these three together as one extra lens on your whole reading: what do they back up, and what do they question?`,
+    reflection: 'What is one thing you can check, one thing you can change, and one thing you can let stay uncertain for now?',
+  }};
+}
+
+// ---------------------------------------------------------------- the spread game
+function dealReading(reading) {
+  state.reading = reading; state.revealed = 0; state.bonusRevealed = 0;
+  $('result').hidden = true; $('bonus-table').hidden = true; $('clarifier-story').hidden = true; $('bonus').hidden = false;
+  $('table').hidden = false; closeSheet();
+  $('reading-kind').textContent = reading.demo ? 'YOUR FIVE-CARD SPREAD' : '✦ YOUR PERSONAL AI READING ✦';
+  $('reading-question').textContent = reading.question ? `“${reading.question}”` : `A ${labels[reading.topic].toLowerCase()} reading`;
+  $('dots').replaceChildren(...POSITIONS.map(() => el('span', 'dot')));
+  const spread = $('spread'); spread.replaceChildren();
+  reading.deck.slice(0, 5).forEach((card, i) => {
+    const slot = el('div', 'slot'); slot.style.setProperty('--i', i);
+    const b = flipCard(card, `Card ${i + 1}, ${POSITIONS[i]}: tap to flip`);
+    b.disabled = i !== 0; if (i === 0) b.classList.add('beckon');
+    b.addEventListener('click', () => reveal(i, b));
+    slot.append(el('span', 'slot-label', `${i + 1}. ${POSITIONS[i]}`), b); spread.append(slot);
+  });
+  spread.classList.remove('dealt'); void spread.offsetWidth; spread.classList.add('dealt');
+  $('progress-text').textContent = 'Tap card 1 to flip it 👆';
+  sounds.tap();
+  $('table').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'start'});
+}
+function reveal(i, node) {
+  if (i !== state.revealed || node.classList.contains('flipped')) return;
+  const card = state.reading.deck[i];
+  node.classList.remove('beckon'); node.classList.add('flipped'); node.disabled = true;
+  node.setAttribute('aria-label', `${POSITIONS[i]}: ${card.name}${card.reversedCard ? ', reversed' : ''}`);
+  sounds.flip(); burstFrom(node, 18, 0.6);
+  $('dots').children[i].classList.add('on');
+  state.revealed++;
+  setTimeout(() => { collect(card, node); openSheet(i); }, 520);
+}
+function openSheet(i) {
+  const card = state.reading.deck[i], last = i === 4;
+  $('sheet-pos').textContent = `CARD ${i + 1} OF 5 · ${POSITIONS[i].toUpperCase()}`;
+  $('sheet-name').textContent = card.name;
+  $('sheet-orient').textContent = card.reversedCard ? '↻ Reversed' : '↑ Upright';
+  $('sheet-text').textContent = state.reading.content.cards[i]?.interpretation || meaning(card);
+  $('sheet-link').href = cardUrl(card);
+  $('sheet-next').textContent = last ? '🎉 See my full reading' : `Flip card ${i + 2} →`;
+  $('sheet-next').onclick = () => { closeSheet(); last ? finish() : nextCard(); };
+  $('sheet').hidden = false; requestAnimationFrame(() => $('sheet').classList.add('open'));
+  $('sheet-next').focus({preventScroll: true});
+}
+function closeSheet() { $('sheet').classList.remove('open'); setTimeout(() => { if (!$('sheet').classList.contains('open')) $('sheet').hidden = true; }, 250); }
+function nextCard() {
+  const nodes = $('spread').querySelectorAll('.flip-card'), next = nodes[state.revealed];
+  if (!next) return;
+  next.disabled = false; next.classList.add('beckon');
+  next.scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
+  $('progress-text').textContent = `Tap card ${state.revealed + 1} to flip it 👆`;
+}
+function finish() {
+  const r = state.reading;
+  $('progress-text').textContent = 'All five cards revealed ✨';
+  $('result-title').textContent = `Your ${labels[r.topic].toLowerCase()} reading`;
+  $('insights').replaceChildren(...(r.content.insights || []).map(t => el('li', '', t)));
+  $('summary').textContent = r.content.summary;
+  $('reflection').textContent = r.content.reflection;
+  $('go-deeper').hidden = !r.demo || !(state.config.enabled || state.config.freeEnabled);
+  $('result').hidden = false; sounds.win(); confetti();
+  $('result').scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'start'});
+  const reads = store.get('readings', 0) + 1; store.set('readings', reads);
+}
+$('bonus').addEventListener('click', () => {
+  $('bonus').hidden = true; $('bonus-table').hidden = false;
+  const spread = $('bonus-spread'); spread.replaceChildren();
+  state.reading.deck.slice(5, 8).forEach((card, i) => {
+    const slot = el('div', 'slot'); slot.style.setProperty('--i', i);
+    const b = flipCard(card, `Bonus card ${i + 1}: tap to flip`); b.classList.add('beckon');
+    b.addEventListener('click', () => {
+      if (b.classList.contains('flipped')) return;
+      b.classList.remove('beckon'); b.classList.add('flipped'); b.disabled = true; sounds.flip(); burstFrom(b, 16, 0.6);
+      slot.append(el('span', 'slot-label', `${card.name}${card.reversedCard ? ' ↻' : ''}`));
+      setTimeout(() => collect(card, b), 520);
+      if (++state.bonusRevealed === 3) setTimeout(() => {
+        $('clarifier-story').textContent = state.reading.content.clarification; $('clarifier-story').hidden = false;
+        $('bonus-progress').textContent = 'Bonus cards revealed ✨'; sounds.win(); burstFrom(spread, 50, 1.2);
+      }, 700);
+      else $('bonus-progress').textContent = `${3 - state.bonusRevealed} to go…`;
+    });
+    slot.append(b); spread.append(slot);
+  });
+  spread.classList.remove('dealt'); void spread.offsetWidth; spread.classList.add('dealt');
+  $('bonus-progress').textContent = 'Tap each bonus card 👆';
+  spread.scrollIntoView({behavior: reduceMotion ? 'auto' : 'smooth', block: 'center'});
+});
+
+// ---------------------------------------------------------------- controls
+function setTopic(t) {
+  state.topic = t;
+  document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-checked', String(c.dataset.topic === t)));
+  $('question').placeholder = placeholders[t];
+}
+document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => { setTopic(c.dataset.topic); sounds.tap(); }));
+$('question').addEventListener('input', () => { $('count').textContent = `${$('question').value.length} / 600`; });
+$('deal').addEventListener('click', () => {
+  if (state.busy) return;
+  $('deal').classList.add('shuffling'); sounds.tap();
+  if (state.order && location.protocol !== 'file:') { history.replaceState({}, '', location.pathname); state.order = null; }
+  setTimeout(() => { $('deal').classList.remove('shuffling'); dealReading(practice(state.topic, $('question').value.trim(), $('reversals').checked)); status(''); }, reduceMotion ? 0 : 650);
+});
+$('again').addEventListener('click', () => { $('result').hidden = true; $('table').hidden = true; $('play').scrollIntoView({behavior: 'smooth'}); $('deal').focus({preventScroll: true}); });
+$('sound').addEventListener('click', () => {
+  state.sound = !state.sound; store.set('sound', state.sound);
+  $('sound').textContent = state.sound ? '🔊' : '🔇'; $('sound').setAttribute('aria-pressed', String(state.sound));
+  $('sound').setAttribute('aria-label', state.sound ? 'Sound on' : 'Sound off'); if (state.sound) sounds.tap();
+});
+function readingText() {
+  const r = state.reading;
+  let text = `My ${labels[r.topic]} tarot reading${r.question ? `: “${r.question}”` : ''}\n\n`;
+  r.deck.slice(0, 5).forEach((c, i) => { text += `${i + 1}. ${POSITIONS[i]}: ${c.name}${c.reversedCard ? ' (reversed)' : ''}\n`; });
+  return text + `\n${r.content.summary}\n\nReflection: ${r.content.reflection}`;
+}
+$('share').addEventListener('click', async () => {
+  const text = readingText() + `\n\nFlip your own cards: ${location.origin}`;
+  try { if (navigator.share) await navigator.share({title: 'My tarot reading', text}); else { await navigator.clipboard.writeText(text); toast('📋 Copied! Paste it anywhere.'); } } catch {}
+});
+$('download').addEventListener('click', () => {
+  const text = 'TAROT LEARNING GUIDE\n' + readingText() + '\n\nFor reflection and entertainment. No outcome is guaranteed.';
+  const url = URL.createObjectURL(new Blob([text], {type: 'text/plain'}));
+  const a = el('a'); a.href = url; a.download = 'my-tarot-reading.txt'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+// ---------------------------------------------------------------- personal AI readings (free + paid)
+function busy(v) { state.busy = v; for (const id of ['deal', 'free-ai', 'purchase', 'retry']) $(id).disabled = v; }
+async function api(path, body, token) {
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 115000);
+  try {
+    const response = await fetch(`/api/${path}`, {method: 'POST', headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})}, body: JSON.stringify(body), signal: controller.signal});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The request could not be completed.');
+    return result;
+  } finally { clearTimeout(timer); }
+}
+const accessKey = order => `fifth-card:${order}`;
+const randomKey = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
+function aiQuestion() {
+  const q = $('question').value.trim() || state.reading?.question || '';
+  if (q.length < 8) { status('Type a question (at least 8 characters) above for a personal reading.'); $('question').focus(); $('play').scrollIntoView({behavior: 'smooth'}); return null; }
+  return q;
+}
+async function refreshFree() {
+  if (!state.visitorToken) return;
+  try {
+    const info = await api('free-status', {token: state.visitorToken});
+    state.remaining = info.remaining;
+    $('free-count').textContent = info.remaining ? `🎁 ${info.remaining} of 3 free personal readings left` : 'Your three free personal readings have been used.';
+    $('free-ai').hidden = $('human-check').hidden = info.remaining === 0;
+    $('purchase').hidden = info.remaining > 0 || !state.config.enabled;
+  } catch { status('Could not check your free readings. Try reloading the page.'); }
+}
+async function restore(order) {
+  busy(true); $('retry').hidden = true; status('🔮 Your personal reading is being written. This can take about a minute…');
+  try {
+    const token = localStorage.getItem(accessKey(order));
+    if (!token) throw new Error('This browser does not have the key for this reading. Use the browser you started in, or contact support if you paid.');
+    const result = await api('reading', {order}, token);
+    state.order = order; status('');
+    dealReading({...result, demo: false});
+  } catch (e) {
+    status(e.name === 'AbortError' ? 'This is taking longer than usual. Tap retry; it will not charge you again or use another free reading.' : e.message);
+    $('retry').hidden = false;
+  } finally { busy(false); }
+}
+$('purchase').addEventListener('click', async () => {
+  if (state.busy) return; const question = aiQuestion(); if (!question) return;
+  busy(true); status('Opening secure checkout…');
+  try {
+    const token = randomKey();
+    const result = await api('checkout', {topic: state.topic, question, reversals: $('reversals').checked, token});
+    localStorage.setItem(accessKey(result.order), token); location.assign(result.url);
+  } catch (e) { status(e.message || 'Checkout could not open. Check that browser storage is on and try again.'); busy(false); }
+});
+$('free-ai').addEventListener('click', async () => {
+  if (state.busy) return; const question = aiQuestion(); if (!question) return;
+  const turnstile = window.turnstile?.getResponse(state.widgetId);
+  if (!turnstile) { status('Complete the quick human check first.'); return; }
+  busy(true); status('Claiming your free personal reading…');
+  try {
+    const result = await api('free', {topic: state.topic, question, reversals: $('reversals').checked, token: state.visitorToken, turnstile});
+    localStorage.setItem(accessKey(result.order), state.visitorToken); history.replaceState({}, '', `?order=${result.order}`);
+    await refreshFree(); await restore(result.order);
+  } catch (e) { status(e.message || 'Your free reading could not start. Please retry.'); }
+  finally { if (window.turnstile && state.widgetId !== null) window.turnstile.reset(state.widgetId); busy(false); }
+});
+$('retry').addEventListener('click', () => restore(new URL(location.href).searchParams.get('order')));
+
+async function init() {
+  $('sound').textContent = state.sound ? '🔊' : '🔇'; $('sound').setAttribute('aria-pressed', String(state.sound));
+  setTopic('love'); renderProgress(); daily();
+  if (location.protocol === 'file:') return;
+  try { const r = await fetch('/card-pages.json'); if (r.ok) state.pages = new Set(await r.json()); } catch {}
+  try { const r = await fetch('/api/config'); if (r.ok) state.config = await r.json(); } catch {}
+  if (state.config.enabled) { $('purchase').hidden = false; $('purchase').textContent = state.config.testMode ? 'Test AI reading · $2' : 'Personal AI reading · $2'; }
+  if (state.config.freeEnabled) {
+    $('free-zone').hidden = false;
+    try {
+      state.visitorToken = localStorage.getItem('tarot-guild-visitor') || randomKey(); localStorage.setItem('tarot-guild-visitor', state.visitorToken);
+      await refreshFree();
+      if (state.remaining > 0) {
+        const script = el('script'); script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'; script.async = true;
+        script.onload = () => { state.widgetId = window.turnstile.render('#human-check', {sitekey: state.config.turnstileSiteKey, theme: 'dark', size: 'flexible'}); };
+        document.head.append(script);
+      }
+    } catch { $('free-zone').hidden = true; }
+  }
+  if (state.config.enabled || state.config.freeEnabled) {
+    $('privacy-copy').replaceChildren(el('p', '', `Personal AI readings store your question, topic, cards and reading for up to 30 days and send them to OpenAI to write the interpretation. Free readings use Cloudflare Turnstile to block bots. After three free readings in this browser, more cost $2 each through Stripe; your card never touches this site. Contact ${state.config.supportEmail} for help or a refund if a paid reading fails.`));
+  }
+  const url = new URL(location.href), order = url.searchParams.get('order');
+  if (order) await restore(order);
+  if (url.searchParams.has('cancelled')) status('Checkout cancelled. No charge was made.');
+}
 init();
