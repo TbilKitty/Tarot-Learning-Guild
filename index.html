@@ -8,7 +8,7 @@
 <div class="daily">
 <button id="daily-card" class="flip-card big" type="button" aria-label="Tap to reveal your card of the day"><span class="flip-inner"><span class="face back"></span><span class="face front" id="daily-front"></span></span></button>
 <p id="daily-hint" class="tap-hint">Tap the card to reveal ✨</p>
-<div id="daily-result" class="daily-result" hidden><p class="result-name" id="daily-name"></p><p id="daily-meaning"></p><a id="daily-link" class="mini-link" href="/card-meanings">What this card means →</a><p class="come-back">New card tomorrow. Keep your streak going 🔥</p></div>
+<div id="daily-result" class="daily-result" hidden><p class="result-name" id="daily-name"></p><p id="daily-meaning"></p><a id="daily-link" class="mini-link" href="/card-meanings">What this card means →</a><button id="daily-share" class="pill daily-share" type="button">📤 Share my card</button><p class="come-back">New card tomorrow. Keep your streak going 🔥</p></div>
 </div>
 <div class="stats" aria-label="Your progress"><span>🔥 <b id="streak">0</b> day streak</span><span>🃏 <b id="collected">0</b>/78 cards collected</span></div>
 <div class="progress" role="progressbar" aria-label="Cards collected" aria-valuemin="0" aria-valuemax="78" aria-valuenow="0" id="collection-progress"><span id="collection-bar"></span></div>
@@ -18,8 +18,9 @@
 
 <section id="play" class="play" aria-labelledby="play-title">
 <h2 id="play-title" class="play-title">Ask the cards</h2>
-<p class="play-sub">Pick a topic, shuffle, then flip your five cards one by one.</p>
-<div class="chips" role="radiogroup" aria-label="Topic">
+<p class="play-sub" id="play-sub">Pick a topic, shuffle, then flip your five cards one by one.</p>
+<div class="modes" role="tablist" aria-label="Reading type"><button type="button" class="mode" role="tab" aria-selected="true" data-mode="spread">🔮 5-card reading</button><button type="button" class="mode" role="tab" aria-selected="false" data-mode="yesno">✅ Yes or No</button></div>
+<div class="chips" id="chips" role="radiogroup" aria-label="Topic">
 <button type="button" class="chip" role="radio" aria-checked="true" data-topic="love">💗 Love</button>
 <button type="button" class="chip" role="radio" aria-checked="false" data-topic="career">💼 Career</button>
 <button type="button" class="chip" role="radio" aria-checked="false" data-topic="money">💰 Money</button>
@@ -36,6 +37,21 @@
 <div class="dots" id="dots" aria-hidden="true"></div>
 <p id="progress-text" class="progress-text" aria-live="polite"></p>
 <div id="spread" class="spread"></div>
+</div>
+
+<div id="yn-table" class="deal-table" hidden>
+<p class="eyebrow">✦ YES OR NO ✦</p>
+<p id="yn-question" class="reading-question"></p>
+<p id="yn-progress" class="progress-text">Tap the card to get your answer 👆</p>
+<div id="yn-spread" class="spread yn"></div>
+<div id="yn-answer" class="yn-answer" hidden>
+<p class="yn-word" id="yn-word"></p>
+<p class="yn-card" id="yn-card"></p>
+<p id="yn-text" class="summary"></p>
+<a id="yn-link" class="mini-link" href="/yes-or-no-tarot">Why this card means that →</a>
+<div class="result-actions"><button id="yn-share" class="pill" type="button">📤 Share</button><button id="yn-again" class="pill hot" type="button">🔁 Ask another</button></div>
+<p class="small center">The traditional lean of the card, for fun and reflection. Big decisions deserve real facts too.</p>
+</div>
 </div>
 
 <div id="result" class="result" hidden tabindex="-1">

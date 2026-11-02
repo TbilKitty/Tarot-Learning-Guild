@@ -26,7 +26,7 @@ const reference=(await readFile('card-meanings.html','utf8'))
   .replace('<!-- Filled at build time with all 78 card entries. -->',library);
 await writeFile('public/card-meanings.html',withSiteParts(reference,'/card-meanings',true));
 if(pagesInfo.adsOn){// AdSense needs to load Google scripts on the reading pages; drop the strict policy there only.
-  await writeFile('public/_headers',(await readFile('_headers','utf8'))+'\n/cards/*\n  ! Content-Security-Policy\n/card-meanings.html\n  ! Content-Security-Policy\n');}
+  await writeFile('public/_headers',(await readFile('_headers','utf8'))+['/cards/*','/card-meanings','/card-meanings.html','/yes-or-no-tarot','/yes-or-no-tarot.html'].map(p=>`\n${p}\n  ! Content-Security-Policy`).join('')+'\n');}
 console.log(`Built ${pagesInfo.cards.length} full card pages; ads ${pagesInfo.adsOn?'ON':'off'}`);
 // A self-contained, offline demo can be opened by double-clicking this file.
 let html=original;

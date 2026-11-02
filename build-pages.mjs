@@ -3,7 +3,7 @@
 //   /about.html, /privacy.html, /sitemap.xml, /robots.txt, /ads.txt (only once ads are on)
 // Called from build.mjs after the main pages are copied.
 import {mkdir, writeFile} from 'node:fs/promises';
-import {DECK} from './deck.mjs';
+import {DECK, yesNo, YES_NO_WORD} from './deck.mjs';
 import {CONTENT} from './card-content.mjs';
 import {SITE} from './site.config.mjs';
 
@@ -32,7 +32,7 @@ ${footer()}</div></body></html>`;
 }
 
 export function footer() {
-  return `<footer class="site-footer"><span class="brand">✦ &nbsp; ${esc(SITE.name.toUpperCase())}</span><span>${esc(SITE.tagline)}</span><nav aria-label="Site"><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/card-meanings">All 78 cards</a></nav></footer>`;
+  return `<footer class="site-footer"><span class="brand">✦ &nbsp; ${esc(SITE.name.toUpperCase())}</span><span>${esc(SITE.tagline)}</span><nav aria-label="Site"><a href="/yes-or-no-tarot">Yes or No</a><a href="/about">About</a><a href="/privacy">Privacy</a><a href="/card-meanings">All 78 cards</a></nav></footer>`;
 }
 
 function cardPage(card, c, prev, next, prompt) {
@@ -75,6 +75,26 @@ ${section('in-a-reading', `${card.name} in a reading`, paras(c.inReading) + (c.p
   return shell({title, description, path: `/cards/${s}`, body, jsonld, ads: true});
 }
 
+function yesNoPage(pages) {
+  const groups = ['Major Arcana', 'Wands', 'Cups', 'Swords', 'Pentacles'];
+  const word = (c, r) => YES_NO_WORD[yesNo({...c, reversedCard: r})];
+  const cls = w => w === 'Yes' ? 'yes' : w === 'No' ? 'no' : 'maybe';
+  const tables = groups.map(g => `<h2 id="${slug(g)}">${esc(g)}</h2><table class="yn-table"><thead><tr><th>Card</th><th>Upright</th><th>Reversed</th></tr></thead><tbody>${
+    DECK.filter(c => c.suit === g).map(c => `<tr><td>${pages.has(slug(c.name)) ? `<a href="/cards/${slug(c.name)}#yes-or-no">${esc(c.name)}</a>` : esc(c.name)}<span class="yn-hint">${esc(c.upright)}</span></td><td class="${cls(word(c, false))}">${word(c, false)}</td><td class="${cls(word(c, true))}">${word(c, true)}</td></tr>`).join('')
+  }</tbody></table>`).join('');
+  const counts = {Yes: 0, Maybe: 0, No: 0}; DECK.forEach(c => counts[word(c, false)]++);
+  return shell({title: 'Yes or No Tarot: Free One-Card Answer + All 78 Cards Explained', description: 'Ask a yes-or-no question and flip one card for a free answer. Plus the traditional yes, no or maybe meaning of all 78 tarot cards, upright and reversed.', path: '/yes-or-no-tarot', ads: true, body: `
+<article class="card-article"><p class="eyebrow">FREE ONE-CARD READING</p><h1>Yes or no tarot <em>ask, flip, get your answer</em></h1>
+<aside class="cta"><p>Got a question on your mind? Flip one card for an instant answer.</p><a class="button-link" href="/?mode=yesno#play">✅ Ask a yes-or-no question</a></aside>
+<p>A yes-or-no tarot reading uses a single card. Each card has a traditional lean: <strong>yes</strong> when its energy supports moving forward, <strong>no</strong> when it points to an ending, a block or a warning, and <strong>maybe</strong> when the outcome depends on choices that are still open. Reversed cards usually shift one step toward no.</p>
+<p>Upright, ${counts.Yes} of the 78 cards lean yes, ${counts.Maybe} lean maybe and ${counts.No} lean no. Treat the answer as a nudge to think with, not a verdict. If the card surprises you, that reaction is worth noticing too.</p>
+<h2>How to ask a good yes-or-no question</h2>
+<p>Keep it to one decision you control: “Should I apply for this job?” works better than “Will they text me?” Avoid stacking two questions together, and ask once. Redrawing until you get the answer you want tells you what you were hoping for, which is useful information in itself.</p>
+${tables}
+<p class="note">Yes/no leans follow common tarot tradition; readers differ on a few cards, especially the court cards and the Hanged Man.</p>
+</article>`});
+}
+
 function about() {
   const contact = SITE.contactEmail ? `<a href="mailto:${esc(SITE.contactEmail)}">${esc(SITE.contactEmail)}</a>` : '<em>(contact email coming soon)</em>';
   return shell({title: `About | ${SITE.name}`, description: `What ${SITE.name} is, how the card meanings are written, and how to get in touch.`, path: '/about', body: `
@@ -113,15 +133,19 @@ export async function buildPages(prompts = []) {
     for (const f of ['overview', 'imagery', 'inReading']) if (!c[f]) throw new Error(`${card.name}: missing ${f}`);
     for (const side of ['upright', 'reversed']) for (const f of ['general', 'love', 'career', 'money'])
       if (!c[side]?.[f]) throw new Error(`${card.name}: missing ${side}.${f}`);
+    const yn = r => YES_NO_WORD[yesNo({...card, reversedCard: r})];
+    if (c.yesNo.upright !== yn(false) || c.yesNo.reversed !== yn(true))
+      throw new Error(`${card.name}: yes/no on its page (${c.yesNo.upright}/${c.yesNo.reversed}) differs from the game (${yn(false)}/${yn(true)}) in deck.mjs`);
     await writeFile(`public/cards/${slug(card.name)}.html`, cardPage(card, c, withContent[i - 1], withContent[i + 1], prompts[card.id] || ''));
   }
   await writeFile('public/card-pages.json', JSON.stringify(withContent.map(c => slug(c.name))));
+  await writeFile('public/yes-or-no-tarot.html', yesNoPage(new Set(withContent.map(c => slug(c.name)))));
   await writeFile('public/about.html', about());
   await writeFile('public/404.html', shell({title: `Page not found | ${SITE.name}`, description: 'This page could not be found.', path: '/404', body: `
 <article class="card-article"><h1>That card isn’t in the deck</h1><p>The page you were looking for doesn’t exist or has moved.</p>
 <p><a class="button-link" href="/card-meanings">Browse all 78 card meanings</a></p></article>`}).replace('<link rel="canonical"', '<meta name="robots" content="noindex"><link rel="x-canonical"'));
   await writeFile('public/privacy.html', privacy());
-  const urls = ['/', '/card-meanings', '/about', '/privacy', ...withContent.map(c => `/cards/${slug(c.name)}`)];
+  const urls = ['/', '/card-meanings', '/yes-or-no-tarot', '/about', '/privacy', ...withContent.map(c => `/cards/${slug(c.name)}`)];
   await writeFile('public/sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `  <url><loc>${SITE.url}${u}</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n</urlset>\n`);
   await writeFile('public/robots.txt', `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${SITE.url}/sitemap.xml\n`);
   if (adsOn) await writeFile('public/ads.txt', `google.com, ${SITE.adsenseClient.replace('ca-', '')}, DIRECT, f08c47fec0942fa0\n`);
