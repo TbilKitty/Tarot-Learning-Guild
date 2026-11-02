@@ -10,9 +10,10 @@
     "TURNSTILE_SITE_KEY": "",
     "SITE_URL": "https://tarotlearningguide.com",
     "SUPPORT_EMAIL": "rileygreenm@gmail.com",
+    "VAPID_PUBLIC_KEY": "BFrpYMEclGXOYD7SZSRURyCWDAEAqqZmhXZKsEI6MaiMuBTyoB6kII90h0Gt1gbYL3gmqtUz4eDiz912jADFyEE",
     "OPENAI_MODEL": "gpt-4.1-mini"
   },
   "d1_databases": [{ "binding": "DB", "database_name": "fifth-card-readings", "database_id": "73a887c8-ccad-4d8e-aa62-91abe3712e0f" }],
-  "triggers": { "crons": ["0 * * * *"] },
+  "triggers": { "crons": ["*/10 * * * *"] },
   "observability": { "enabled": false }
 }

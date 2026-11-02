@@ -155,3 +155,15 @@
 .support{margin-top:20px;padding:18px;border-radius:16px;background:#ffffff14;border:1px solid #ffffff40;text-align:left;animation:rise .4s ease-out}
 .support h3{font:600 22px/1.3 var(--serif);margin:0 0 8px;color:#fff}
 .support p{line-height:1.55;color:#f3eafc}
+
+/* daily reminder */
+.remind{margin:12px 0 0}
+.remind-btn{display:block;margin:0 auto}
+.remind-state{font-size:13px;color:#d9c9ef!important;margin:8px 0 0!important}
+.remind-state button{background:none;border:0;color:#ffd36e;font:inherit;text-decoration:underline;cursor:pointer;padding:0}
+.rchips{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.rchip{padding:14px 10px;border-radius:14px;border:1px solid #ffffff33;background:#ffffff10;color:#fff;font:700 16px/1 var(--sans);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.rchip[aria-checked="true"]{background:linear-gradient(135deg,#ffd36e,#ff7ac6);color:#2b1450;border-color:transparent;box-shadow:0 6px 18px #ff7ac655}
+.r-steps{padding-left:22px;line-height:1.6;color:#fff}
+.r-steps li{margin:0 0 8px}
+.r-close{display:block;margin:12px auto 0}
