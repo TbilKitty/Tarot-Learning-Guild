@@ -538,6 +538,69 @@ $('free-ai').addEventListener('click', async () => {
 });
 $('retry').addEventListener('click', () => restore(new URL(location.href).searchParams.get('order')));
 
+// ---------------------------------------------------------------- daily reminder (web push)
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const hourLabel = h => h === 12 ? 'noon' : `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
+function keyBytes(b64) { const s = b64.replace(/-/g, '+').replace(/_/g, '/'); return Uint8Array.from(atob(s + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0)); }
+function openRSheet(panel) {
+  $('r-time').hidden = panel !== 'time'; $('r-ios').hidden = panel !== 'ios';
+  $('rsheet').hidden = false; requestAnimationFrame(() => $('rsheet').classList.add('open'));
+}
+function closeRSheet() { $('rsheet').classList.remove('open'); setTimeout(() => { if (!$('rsheet').classList.contains('open')) $('rsheet').hidden = true; }, 250); }
+function renderReminder() {
+  const r = store.get('reminder', null);
+  $('remind-btn').hidden = Boolean(r);
+  $('remind-state').hidden = !r;
+  if (r) {
+    const off = el('button', '', 'Turn off'); off.type = 'button'; off.addEventListener('click', turnOffReminder);
+    $('remind-state').replaceChildren(document.createTextNode(`🔔 Daily reminder on at ${hourLabel(r.hour)}. `), off);
+  }
+}
+async function turnOnReminder(hour) {
+  const btn = $('r-go'); btn.disabled = true; btn.textContent = 'Turning on…';
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast(perm === 'denied' ? 'Notifications are blocked. Allow them in your settings to get reminders.' : 'No problem, maybe later.'); return; }
+    const reg = await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: keyBytes(state.config.pushKey)});
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+    const res = await fetch('/api/push/subscribe', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({subscription: sub.toJSON(), hour, tz, welcome: true})});
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not turn on reminders.');
+    store.set('reminder', {hour}); closeRSheet(); renderReminder();
+    sounds.win(); burstFrom($('remind'), 40, 0.8); toast(`🔔 You’re set! See you at ${hourLabel(hour)}.`, 'gold');
+  } catch (e) { toast(e.message || 'Could not turn on reminders. Please try again.'); }
+  finally { btn.disabled = false; btn.textContent = '🔔 Turn on reminders'; }
+}
+async function turnOffReminder() {
+  try {
+    const reg = await navigator.serviceWorker.getRegistration('/');
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) { await fetch('/api/push/unsubscribe', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({endpoint: sub.endpoint})}); await sub.unsubscribe(); }
+  } catch {}
+  store.set('reminder', null); renderReminder(); toast('Reminders turned off.');
+}
+function setupReminders() {
+  if (!state.config.pushKey) return;
+  const canNow = pushSupported() && (!isIOS() || isStandalone());
+  if (!canNow && !(isIOS() && !isStandalone())) return; // browser can't do push at all
+  $('remind').hidden = false;
+  // Forget a stale "on" state if the browser no longer has permission.
+  if (store.get('reminder', null) && pushSupported() && Notification.permission !== 'granted') store.set('reminder', null);
+  renderReminder();
+  let hour = 8;
+  document.querySelectorAll('.rchip').forEach(c => c.addEventListener('click', () => {
+    hour = Number(c.dataset.hour); sounds.tap();
+    document.querySelectorAll('.rchip').forEach(x => x.setAttribute('aria-checked', String(x === c)));
+  }));
+  $('remind-btn').addEventListener('click', () => { sounds.tap(); openRSheet(canNow ? 'time' : 'ios'); });
+  $('r-go').addEventListener('click', () => turnOnReminder(hour));
+  $('r-ok').addEventListener('click', closeRSheet);
+  $('r-close').addEventListener('click', closeRSheet);
+}
+
 async function init() {
   $('sound').textContent = state.sound ? '🔊' : '🔇'; $('sound').setAttribute('aria-pressed', String(state.sound));
   setTopic('love'); renderProgress(); daily();
@@ -545,6 +608,7 @@ async function init() {
   if (location.protocol === 'file:') return;
   try { const r = await fetch('/card-pages.json'); if (r.ok) state.pages = new Set(await r.json()); } catch {}
   try { const r = await fetch('/api/config'); if (r.ok) state.config = await r.json(); } catch {}
+  setupReminders();
   if (state.config.enabled) { $('purchase').hidden = false; $('purchase').textContent = state.config.testMode ? 'Test AI reading · $2' : 'Personal AI reading · $2'; }
   if (state.config.freeEnabled) {
     $('free-zone').hidden = false;

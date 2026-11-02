@@ -116,6 +116,7 @@ function privacy() {
 <article class="card-article"><h1>Privacy policy</h1><p class="note">Last updated ${today}</p>
 <h2>What we collect</h2>
 <p>You can read every card page and use the free practice draw without creating an account. Practice draws happen in your browser and are not sent to us.</p>
+<p>If you turn on the daily reminder, we store the notification address your browser gives us, your time zone and the reminder time you picked, so we can send one notification a day. It is not linked to your name or email. Turn it off anytime with the “Turn off” link under your card of the day, or by blocking notifications for this site; we delete the address as soon as it stops working.</p>
 <p>If you use a personal AI reading, we store your question, your drawn cards and the generated reading for 30 days so you can return to it, linked to a random key saved in your browser, not to your name. Free readings use a Cloudflare Turnstile check to prevent abuse. Paid readings are processed by Stripe; we never see or store your card number. Reading text is sent to OpenAI to generate the interpretation and is not used to train their models under their API terms.</p>
 ${adsText}
 <h2>Hosting and logs</h2><p>The site is hosted by Cloudflare, which processes standard technical data such as IP addresses to deliver pages and protect against abuse.</p>

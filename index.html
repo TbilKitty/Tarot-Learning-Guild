@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="description" content="Flip a free tarot card of the day, draw a five-card reading you reveal one card at a time, and collect all 78 cards while you learn their meanings."><meta name="theme-color" content="#1b1030"><title>Free Tarot Reading &amp; Card of the Day: Flip Your Cards | Tarot Learning Guide</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="magic-theme.css"><link rel="stylesheet" href="play.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta name="description" content="Flip a free tarot card of the day, draw a five-card reading you reveal one card at a time, and collect all 78 cards while you learn their meanings."><meta name="theme-color" content="#1b1030"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tarot Guide"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><title>Free Tarot Reading &amp; Card of the Day: Flip Your Cards | Tarot Learning Guide</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="magic-theme.css"><link rel="stylesheet" href="play.css"></head>
 <body><div class="page"><header><a class="brand" href="./" aria-label="Tarot Learning Guide home"><span class="brand-mark">✦</span> TAROT LEARNING GUIDE</a><nav aria-label="Main"><a href="#learn">Learn tarot</a><a href="card-meanings.html">Card meanings</a></nav></header>
 <main class="play-main">
 <section class="hero-play" aria-labelledby="daily-title">
@@ -8,7 +8,7 @@
 <div class="daily">
 <button id="daily-card" class="flip-card big" type="button" aria-label="Tap to reveal your card of the day"><span class="flip-inner"><span class="face back"></span><span class="face front" id="daily-front"></span></span></button>
 <p id="daily-hint" class="tap-hint">Tap the card to reveal ✨</p>
-<div id="daily-result" class="daily-result" hidden><p class="result-name" id="daily-name"></p><p id="daily-meaning"></p><a id="daily-link" class="mini-link" href="/card-meanings">What this card means →</a><button id="daily-share" class="pill daily-share" type="button">📤 Share my card</button><p class="come-back">New card tomorrow. Keep your streak going 🔥</p></div>
+<div id="daily-result" class="daily-result" hidden><p class="result-name" id="daily-name"></p><p id="daily-meaning"></p><a id="daily-link" class="mini-link" href="/card-meanings">What this card means →</a><button id="daily-share" class="pill daily-share" type="button">📤 Share my card</button><p class="come-back">New card tomorrow. Keep your streak going 🔥</p><div id="remind" class="remind" hidden><button id="remind-btn" class="pill hot remind-btn" type="button">🔔 Remind me daily</button><p id="remind-state" class="remind-state" hidden></p></div></div>
 </div>
 <div class="stats" aria-label="Your progress"><span>🔥 <b id="streak">0</b> day streak</span><span>🃏 <b id="collected">0</b>/78 cards collected</span></div>
 <div class="progress" role="progressbar" aria-label="Cards collected" aria-valuemin="0" aria-valuemax="78" aria-valuenow="0" id="collection-progress"><span id="collection-bar"></span></div>
@@ -94,6 +94,33 @@
 <p id="sheet-text"></p>
 <a id="sheet-link" class="mini-link" href="/card-meanings" target="_blank" rel="noopener">Learn this card →</a>
 <button id="sheet-next" class="cta-big" type="button">Next card →</button>
+</div>
+<div id="rsheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="rsheet-title">
+<div class="sheet-grip" aria-hidden="true"></div>
+<div id="r-time">
+<p class="eyebrow">DAILY REMINDER</p>
+<h3 id="rsheet-title">When should we ping you?</h3>
+<p>One notification a day when your new card is ready. No spam, and you can turn it off anytime.</p>
+<div class="rchips" role="radiogroup" aria-label="Reminder time">
+<button class="rchip" type="button" role="radio" data-hour="8" aria-checked="true">☀️ 8 AM</button>
+<button class="rchip" type="button" role="radio" data-hour="12" aria-checked="false">🌤️ Noon</button>
+<button class="rchip" type="button" role="radio" data-hour="19" aria-checked="false">🌙 7 PM</button>
+<button class="rchip" type="button" role="radio" data-hour="22" aria-checked="false">✨ 10 PM</button>
+</div>
+<button id="r-go" class="cta-big" type="button">🔔 Turn on reminders</button>
+</div>
+<div id="r-ios" hidden>
+<p class="eyebrow">ONE QUICK STEP ON IPHONE</p>
+<h3>Add us to your home screen</h3>
+<p>iPhone only allows reminders from sites saved to your home screen. It takes 10 seconds:</p>
+<ol class="r-steps">
+<li>Tap the <strong>Share</strong> button <span aria-hidden="true">(the square with an arrow ⬆️)</span> at the bottom of Safari.</li>
+<li>Scroll down and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+<li>Open <strong>Tarot Guide</strong> from your home screen and tap <strong>🔔 Remind me daily</strong> again.</li>
+</ol>
+<button id="r-ok" class="cta-big" type="button">Got it</button>
+</div>
+<button id="r-close" class="pill r-close" type="button">Not now</button>
 </div>
 <div id="toast" class="toast" aria-live="polite"></div>
 <canvas id="fx" class="fx" aria-hidden="true"></canvas>
